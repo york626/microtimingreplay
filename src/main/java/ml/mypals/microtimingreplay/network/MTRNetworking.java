@@ -2,6 +2,7 @@ package ml.mypals.microtimingreplay.network;
 
 import ml.mypals.microtimingreplay.config.RecordingEventRegistry;
 import ml.mypals.microtimingreplay.config.RecordingFilterConfig;
+import ml.mypals.microtimingreplay.record.QuickRecordService;
 import ml.mypals.microtimingreplay.replay.PlayerPositioner;
 import ml.mypals.microtimingreplay.replay.ReplayContext;
 import ml.mypals.microtimingreplay.replay.ReplayManager;
@@ -47,6 +48,7 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.RequestFilterC2S.TYPE, MTRPayloads.RequestFilterC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.SetFilterC2S.TYPE, MTRPayloads.SetFilterC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.ResetFilterC2S.TYPE, MTRPayloads.ResetFilterC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickRecordC2S.TYPE, MTRPayloads.QuickRecordC2S.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.SessionsS2C.TYPE, MTRPayloads.SessionsS2C.CODEC);
@@ -58,6 +60,7 @@ public class MTRNetworking {
         // rather than being split — keep an eye on it for very long recordings.
         PayloadTypeRegistry.playS2C().register(MTRPayloads.TimelineS2C.TYPE, MTRPayloads.TimelineS2C.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.DetailsS2C.TYPE, MTRPayloads.DetailsS2C.CODEC);
+        PayloadTypeRegistry.playS2C().register(MTRPayloads.QuickRecordStateS2C.TYPE, MTRPayloads.QuickRecordStateS2C.CODEC);
     }
 
     public static void registerServerHandlers() {
@@ -66,6 +69,20 @@ public class MTRNetworking {
             // logs out mid-follow would otherwise come back stuck in spectator.
             PlayerPositioner.onDisconnect(handler.getPlayer());
             MTRClientTracker.forget(handler.getPlayer());
+        });
+
+        // 「动态记录」：客户端只送选区与名字，建配置档 / 加区域 / 开录全在服务端做
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.QuickRecordC2S.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (!isAllowed(player)) return;
+
+            QuickRecordService.State state = payload.action() == MTRPayloads.QuickRecordC2S.ACTION_STOP
+                    ? QuickRecordService.stop(player)
+                    : QuickRecordService.start(player, payload.name(), payload.min(), payload.max());
+
+            ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(
+                    state.recording(), state.profile(), state.ticks(), state.events(),
+                    state.limit(), state.message()));
         });
 
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.HelloC2S.TYPE, (payload, context) -> {

@@ -6,6 +6,7 @@ import ml.mypals.microtimingreplay.client.screen.TimelineScreen;
 import ml.mypals.microtimingreplay.network.MTRPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -33,6 +34,10 @@ public class MTRClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(MTRPayloads.FilterS2C.TYPE, (payload, context) ->
                 ClientReplayState.onFilter(payload.rows()));
 
+        ClientPlayNetworking.registerGlobalReceiver(MTRPayloads.QuickRecordStateS2C.TYPE, (payload, context) ->
+                QuickRecordState.update(payload.recording(), payload.profile(), payload.ticks(),
+                        payload.events(), payload.limit(), payload.message()));
+
         ClientPlayNetworking.registerGlobalReceiver(MTRPayloads.OpenScreenS2C.TYPE, (payload, context) -> {
             Screen screen = switch (payload.screen()) {
                 case MTRPayloads.OpenScreenS2C.TIMELINE -> new TimelineScreen();
@@ -57,6 +62,18 @@ public class MTRClientNetworking {
 
     public static void sendHello() {
         send(new MTRPayloads.HelloC2S(MTRPayloads.PROTOCOL_VERSION));
+    }
+
+    /** 「动态记录」开始：把 Litematica 选区与名字交给服务端。 */
+    public static void quickRecordStart(String name, BlockPos min, BlockPos max) {
+        send(new MTRPayloads.QuickRecordC2S(MTRPayloads.QuickRecordC2S.ACTION_START,
+                name == null ? "" : name, min, max));
+    }
+
+    /** 「动态记录」停止（并保存）。 */
+    public static void quickRecordStop() {
+        send(new MTRPayloads.QuickRecordC2S(MTRPayloads.QuickRecordC2S.ACTION_STOP,
+                "", BlockPos.ZERO, BlockPos.ZERO));
     }
 
     public static void requestTimeline() {

@@ -44,6 +44,8 @@ public class MicroTimingReplay implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STOPPING.register(MTRState::stoppingServer);
 		ServerLifecycleEvents.SERVER_STOPPED.register(s -> MicroTimingReplay.server = null);
 		ServerTickEvents.END_SERVER_TICK.register(MTRState::checkAutoStop);
+		// 「动态记录」的 HUD 状态推送 + 到点自动停录后的收尾
+		ServerTickEvents.END_SERVER_TICK.register(ml.mypals.microtimingreplay.record.QuickRecordService::tick);
 		SelectionEventHandler.register();
 	}
 

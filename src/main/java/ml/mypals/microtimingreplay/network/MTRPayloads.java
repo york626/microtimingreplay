@@ -315,6 +315,57 @@ public class MTRPayloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    // ── 快捷录制（GUI 一键开录） ─────────────────────────────────────────────
+
+    /**
+     * 客户端点「开始动态记录 / 停止记录」时发的包。
+     *
+     * <p>服务端仍然是唯一说了算的那一方：这里只把「Litematica 选区 + 名字」送过去，
+     * 建配置档、加区域、开始录制全部由 {@code QuickRecordService} 用原有那套 API 做——
+     * 客户端不能凭这个包改任何它本来改不了的东西。
+     */
+    public record QuickRecordC2S(int action, String name, BlockPos min, BlockPos max) implements CustomPacketPayload {
+        public static final int ACTION_START = 0;
+        public static final int ACTION_STOP = 1;
+
+        public static final Type<QuickRecordC2S> TYPE = MTRPayloads.payloadType("quick_record_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, QuickRecordC2S> CODEC = StreamCodec.of(
+                (buf, payload) -> {
+                    buf.writeVarInt(payload.action());
+                    buf.writeUtf(payload.name(), 128);
+                    BlockPos.STREAM_CODEC.encode(buf, payload.min());
+                    BlockPos.STREAM_CODEC.encode(buf, payload.max());
+                },
+                buf -> new QuickRecordC2S(buf.readVarInt(), buf.readUtf(128),
+                        BlockPos.STREAM_CODEC.decode(buf), BlockPos.STREAM_CODEC.decode(buf)));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /**
+     * 录制状态回推：HUD 与快捷录制界面都只读这一份。
+     *
+     * @param limit  本次录制的刻数上限（5000，到点自动停）
+     * @param message 给玩家看的一句话（成功 / 失败原因），为空表示不用提示
+     */
+    public record QuickRecordStateS2C(boolean recording, String profile, int ticks, int events,
+                                      int limit, String message) implements CustomPacketPayload {
+        public static final Type<QuickRecordStateS2C> TYPE = MTRPayloads.payloadType("quick_record_state_s2c");
+        public static final StreamCodec<RegistryFriendlyByteBuf, QuickRecordStateS2C> CODEC = StreamCodec.of(
+                (buf, payload) -> {
+                    buf.writeBoolean(payload.recording());
+                    buf.writeUtf(payload.profile(), 128);
+                    buf.writeVarInt(payload.ticks());
+                    buf.writeVarInt(payload.events());
+                    buf.writeVarInt(payload.limit());
+                    buf.writeUtf(payload.message(), 256);
+                },
+                buf -> new QuickRecordStateS2C(buf.readBoolean(), buf.readUtf(128), buf.readVarInt(),
+                        buf.readVarInt(), buf.readVarInt(), buf.readUtf(256)));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /**
      * @param option true for the plain on/off replay switches, which only flip between
      *               {@link RecordMode#OFF} and {@link RecordMode#ALL}

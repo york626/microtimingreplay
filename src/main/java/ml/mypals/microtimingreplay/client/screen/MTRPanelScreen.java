@@ -4,6 +4,7 @@ import ml.mypals.microtimingreplay.client.ClientReplayState;
 import ml.mypals.microtimingreplay.client.MTRClientConfig;
 import ml.mypals.microtimingreplay.client.MTRClientNetworking;
 import ml.mypals.microtimingreplay.client.MTRKeys;
+import ml.mypals.microtimingreplay.client.QuickRecordState;
 import ml.mypals.microtimingreplay.util.MTRComponent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -83,6 +84,16 @@ public class MTRPanelScreen extends Screen {
      */
     private List<Card> buildCards() {
         List<Card> cards = new ArrayList<>();
+
+        // 录制中：面板上直接给「停止记录」，不用再进界面；否则给「动态记录」入口
+        if (QuickRecordState.isRecording()) {
+            cards.add(new Card(
+                    MTRComponent.translatable("mtr.panel.record_stop", "■ 停止记录 %s 刻", QuickRecordState.ticks()),
+                    0, 0, 104, false, MTRClientNetworking::quickRecordStop, null));
+        } else {
+            cards.add(new Card(MTRComponent.translatable("mtr.panel.quick", "动态记录"), 0, 0, 72, false,
+                    () -> this.minecraft.setScreen(new QuickRecordScreen(this)), null));
+        }
 
         if (ClientReplayState.isWatching()) {
             cards.add(new Card(MTRComponent.translatable("mtr.panel.timeline", "Timeline"), 0, 0, 62, false,

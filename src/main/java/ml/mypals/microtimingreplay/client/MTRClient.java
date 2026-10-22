@@ -22,15 +22,19 @@ public class MTRClient implements ClientModInitializer {
         MTRClientConfig.load();
         MTRKeys.register();
         MTRClientNetworking.registerClientHandlers();
+        // 录制中的左上角角标
+        QuickRecordHud.register();
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             ClientReplayState.reset();
+            QuickRecordState.reset();
             // The server replies with HelloS2C only if it speaks our protocol, which is
             // how the client learns whether to offer the panel at all.
             MTRClientNetworking.sendHello();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             ClientReplayState.reset();
+            QuickRecordState.reset();
             TimelineAutoHide.forget();
         });
 

@@ -325,5 +325,22 @@
     "mtr.timeline.no_selection": "选择一行查看详情",
     "mtr.config.camera": "镜头跟随每一步",
     "mtr.config.camera_on": "跟随中",
-    "mtr.config.camera_off": "关"
+    "mtr.config.camera_off": "关",
+    "mtr.panel.quick": "动态记录",
+    "mtr.quick.title": "动态记录",
+    "mtr.quick.start": "● 开始动态记录",
+    "mtr.quick.stop": "■ 停止记录",
+    "mtr.quick.refresh": "重新读取选区",
+    "mtr.quick.help": "更多玩法（原指令）",
+    "mtr.quick.back": "返回",
+    "mtr.quick.selection": "选区：%s",
+    "mtr.quick.selection_none": "选区：未框选（先在 Litematica 里框一个区域）",
+    "mtr.quick.volume": "体积：%s 格（上限 1,000,000）",
+    "mtr.quick.status_recording": "录制中：第 %s/%s 刻 · %s 个事件",
+    "mtr.quick.status_idle": "未在录制",
+    "mtr.quick.no_litematica": "没检测到 Litematica：请先安装 Litematica 并框一个选区",
+    "mtr.quick.no_selection": "没有选区：先在 Litematica 里框一个区域",
+    "mtr.hud.recording": "● 录制中 %s/%s 刻 · %s 事件",
+    "mtr.hud.profile": "配置档：%s",
+    "mtr.panel.record_stop": "■ 停止记录 %s 刻"
 }
