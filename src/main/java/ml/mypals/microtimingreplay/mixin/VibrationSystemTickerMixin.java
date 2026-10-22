@@ -2,7 +2,6 @@ package ml.mypals.microtimingreplay.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.llamalad7.mixinextras.sugar.Local;
 import ml.mypals.microtimingreplay.MTRState;
 import ml.mypals.microtimingreplay.event.ReceivedGameEventEvent;
 import ml.mypals.microtimingreplay.profile.MTRProfile;
@@ -20,7 +19,14 @@ import org.spongepowered.asm.mixin.injection.At;
 public interface VibrationSystemTickerMixin {
 
     @WrapOperation(method = "receiveVibration", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/gameevent/vibrations/VibrationSystem$User;onReceiveVibration(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;F)V"))
-    private static void mtr$onReceiveVibration(VibrationSystem.User instance, ServerLevel serverLevel, BlockPos origin, Holder<GameEvent> gameEventHolder, @Nullable Entity sourceEntity, @Nullable Entity projOwner, float v, Operation<Void> original, @Local(name = "blockPos2") BlockPos destination) {
+    private static void mtr$onReceiveVibration(VibrationSystem.User instance, ServerLevel serverLevel, BlockPos origin, Holder<GameEvent> gameEventHolder, @Nullable Entity sourceEntity, @Nullable Entity projOwner, float v, Operation<Void> original) {
+        // 正式环境里 Minecraft 的类没有局部变量表，@Local(name = "blockPos2") 必然找不到（会导致崩服）。
+        // 这里改写成和原版 Ticker#receiveVibration 内同样的算法：
+        // blockPos2 = callback.getPositionSource().getPosition(world).map(BlockPos::containing).orElse(origin)
+        BlockPos destination = instance.getPositionSource()
+            .getPosition(serverLevel)
+            .map(BlockPos::containing)
+            .orElse(origin);
         if (MTRState.isRecording(serverLevel)) {
             MTRProfile profile = MTRState.getActiveProfile();
             String dim = serverLevel.dimension().location().toString();
