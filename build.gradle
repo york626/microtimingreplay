@@ -37,6 +37,14 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
 }
 
+// 产物名统一成 <模组名>-<模组版本>-<MC 版本>.jar（与 Ray 其他模组的命名习惯一致）。
+// 上游原版叫 microtimingreplay-1.21.1.jar —— 那个 1.21.1 是游戏版本、不含模组版本，容易认错。
+// 注意：只改**打包产物**的名字，fabric.mod.json 里的 version 仍是纯模组版本（1.0.1）。
+tasks.named('remapJar') {
+	archiveBaseName = "${project.name}-${project.version}"
+	archiveVersion = project.minecraft_version
+}
+
 java {
 	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
 	// if it is present.
