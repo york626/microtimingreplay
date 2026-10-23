@@ -17,7 +17,8 @@ public abstract class MarkerVisibilityMixin {
     @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
     private <E extends Entity> void mtr$hideMarkers(E entity, Frustum frustum, double camX, double camY,
                                                     double camZ, CallbackInfoReturnable<Boolean> cir) {
-        if (MTRClientConfig.hideMarkers() && DisplayUtils.isMarker(entity)) {
+        // 用 isHideableMarker：活塞替身是 B36 唯一的渲染来源，不归「标记：隐藏」管
+        if (MTRClientConfig.hideMarkers() && DisplayUtils.isHideableMarker(entity)) {
             cir.setReturnValue(false);
         }
     }

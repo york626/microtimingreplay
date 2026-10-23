@@ -51,11 +51,23 @@ public class DisplayUtils {
         if (entity == null) return false;
         Component name = entity.getCustomName();
         if (name != null && MARKER_NAME.equals(name.getString())) return true;
-        // 活塞展示体（PistonDisplayManager 生成的）没有自定义名，但它同样是标记 ——
-        // 不认它的话「标记：隐藏」关不干净，画面上还会剩半透明方块。
+        // 活塞展示体（PistonDisplayManager 生成的）没有自定义名，但它同样是 MTR 的展示体
+        //（「开回放清第三方展示体」要靠这里认出自己人，别把它当 YACA 的删了）。
         return entity.getTags().contains("mtr_piston_display")
                 || entity.getTags().contains("mtr_replay_marker")
                 || entity.getTags().contains("mtr_marker");
+    }
+
+    /**
+     * 「标记：隐藏」能不能藏它。
+     *
+     * <p>活塞替身（{@code mtr_piston_display}）**不能**藏：它不是装饰，是 {@code moving_piston}（B36）
+     * 唯一的渲染来源 —— B36 自己画成空气，替身一藏，画面上就是一格空洞/透明方块
+     * （Ray 的配置里 hideMarkers=true，v1.3.16/1.3.17 的替身就是这么被藏没的）。
+     */
+    public static boolean isHideableMarker(Entity entity) {
+        if (!isMarker(entity)) return false;
+        return !entity.getTags().contains("mtr_piston_display");
     }
 
     public static BlockState getGlassState(ChatFormatting color) {
