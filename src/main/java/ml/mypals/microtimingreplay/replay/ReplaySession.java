@@ -641,6 +641,29 @@ public class ReplaySession {
         }
 
         PistonDisplayManager.endRenderPistons(level);
+
+        // 兜底：不管掉落物是"重建实体"还是"回放过程中方块逻辑掉出来的"，每步都把选区内的物品清掉，
+        // 保证画面上永远看不到一地活塞/粘性活塞（Ray 2026-10-23 要的效果）。
+        sweepItemEntities(level);
+    }
+
+    private void sweepItemEntities(ServerLevel level) {
+        if (!ReplayPrefs.skipItemEntities()) return;
+        MTRProfile profile = currentProfile;
+        if (profile == null || level == null) return;
+
+        String dimension = level.dimension().location().toString();
+        for (MTRProfile.Area area : profile.getAreas()) {
+            if (!MTRProfile.matchDimension(area.dimension, dimension)) continue;
+            net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
+                    Math.min(area.x1, area.x2), Math.min(area.y1, area.y2), Math.min(area.z1, area.z2),
+                    Math.max(area.x1, area.x2) + 1, Math.max(area.y1, area.y2) + 1,
+                    Math.max(area.z1, area.z2) + 1);
+            for (net.minecraft.world.entity.item.ItemEntity item :
+                    level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, box)) {
+                item.discard();
+            }
+        }
     }
 
     /** Overlapping markers become progressively narrower, taller pillars. */
