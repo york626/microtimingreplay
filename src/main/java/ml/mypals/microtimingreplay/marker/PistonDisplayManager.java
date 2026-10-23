@@ -119,9 +119,8 @@ public class PistonDisplayManager {
     }
 
     public static UUID spawnStaticBlockDisplay(ServerLevel level, BlockPos blockPos, BlockState state, float xOff, float yOff, float zOff) {
-        if (!ml.mypals.microtimingreplay.replay.ReplayPrefs.showBlockMarkers()) {
-            return java.util.UUID.randomUUID();   // 不生成，但调用方还要一个 id
-        }
+        // ⚠️ 这里**不能**受 showBlockMarkers 控制：活塞在推拉中途是 `moving_piston` 方块，
+        // 它自己渲染成空气，全靠这个替身把"正在移动的方块"画出来。关掉就变成一片空洞/透明。
         Display.BlockDisplay entity = new Display.BlockDisplay(EntityType.BLOCK_DISPLAY, level);
         entity.setPos(blockPos.getX(), blockPos.getY(), blockPos.getZ());
         entity.setBlockState(state);
