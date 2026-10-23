@@ -42,3 +42,16 @@ env -u https_proxy -u HTTPS_PROXY -u http_proxy -u HTTP_PROXY \
   （正文只写本次改动；tag/附件名形如 `microtimingreplay-1.1.0-1.21.1.jar`）
 - **⚠️ 不要在 GitHub 页面点「同步分叉 / Sync fork」**：我们通常 `ahead_by>0 / behind_by=0`，
   点它等于「Discard commit」，会把我们的修复丢掉
+
+### ★ 冻结回放 + 活塞：`moving_piston`（B36）那条链（2026-10-23 定型）
+
+| 环节 | 事实 |
+|---|---|
+| B36 自身 | **`moving_piston` 渲染成空气**；"正在移动的方块"原版靠 `PistonMovingBlockEntity` 的渲染器画，而回放只把方块状态写回世界、**不建那份方块实体** ⇒ 冻结回放时全靠 `PistonDisplayManager` 的 `BlockDisplay` 替身 |
+| 替身的地位 | **不是装饰，是唯一渲染来源** ⇒ ① 不受 `showBlockMarkers` 控制 ② 不受「标记：隐藏」控制（`isHideableMarker()` 而非 `isMarker()`）③ 不做"关掉所有标记"这种一刀切 |
+| 替身在服务端 | 每步重建：`renderCurrentState` 回放活塞事件（不限 `LEAF`，只排除 `EXIT`）＋ 兜底 `renderB36StandIns()`（按**世界真实方块状态** `is(Blocks.MOVING_PISTON)` 补）＋ 复用旧替身前先 `anyLive()` 查存活 |
+| 诊断 | 日志 `[mtr-piston] 步 X ｜ 世界里 B36 N 处 ｜ 本轮新造替身 M 处 ｜ 已登记 K 处` |
+| 排查"看不见" | **先看 `config/mtr/client.json` 的 `hideMarkers`**（客户端开关，v1.3.18 的真凶），别只盯服务端 |
+
+> ⚠️ **截至 v1.3.18 仍未最终修好**（Ray 2026-10-23 21:40 回退 `v1.3.6`）。**再接手先做**：把 `hideMarkers` 设回 false 复测，并比对 `[mtr-piston]` 的 K 与画面。
+> 历史：v1.3.7 去掉 `stepGameIfPaused(2)`（回放不再推进真实游戏刻）⇒ B36 不再被真实 tick 推完 ⇒ 这个坑才暴露。
