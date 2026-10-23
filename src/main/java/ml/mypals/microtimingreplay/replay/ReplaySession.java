@@ -18,6 +18,9 @@ import ml.mypals.microtimingreplay.replay.scoreboard.VirtualScoreboardManager;
 import ml.mypals.microtimingreplay.util.MTRComponent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -79,6 +82,15 @@ public class ReplaySession {
     private Map<TickFrame, Map<MTREvent, Integer>> stepMaps;
     /** 录制里有没有活塞事件（没有就跳过一遍全表扫描）。 */
     private Boolean hasPistonActions;
+    /**
+     * 「世界里出现 moving_piston（B36）的位置 → 该画成什么方块」的兜底表。
+     * 录音里没记到活塞事件、或替身实体中途没了的时候，靠它把 B36 补画出来（B36 自己渲染成空气）。
+     * 懒加载一次，之后每步只查表。
+     */
+    private Map<BlockPos, B36Info> b36Info;
+
+    /** 某个 B36 位置要画出来的替身信息；{@code dirId < 0} 表示方向未知（就画在 B36 那一格）。 */
+    private record B36Info(int stateId, int dirId, boolean extending, boolean sourcePiston, String dimension) {}
     /** 过滤器一改，isDisplayed() 结果就变了 ⇒ 用它让行号前缀表失效重建。 */
     private int displayedRevision = 0;
 
@@ -484,6 +496,47 @@ public class ReplaySession {
         return hasPistonActions;
     }
 
+    /**
+     * 兜底表：位置 → 「这个位置挂着 B36 时该画成什么方块」。
+     *
+     * <p>两个来源，后者更准、优先级更高：
+     * <ol>
+     *   <li>{@link SetBlockEvent}：B36 被换成的那个方块（活塞推完/拉完后的落点状态）。方向未知。</li>
+     *   <li>{@link MovingPistonEvent} / {@link MovingPistonTickEvent}：录制下来的"正在移动的方块"，方向/伸收都有。</li>
+     * </ol>
+     */
+    private Map<BlockPos, B36Info> ensureB36Info() {
+        if (b36Info == null) {
+            Map<BlockPos, B36Info> m = new HashMap<>();
+
+            // ① 先靠 setBlock 兜底：B36 被换成的那个方块 = 移动结束后落在这里的方块
+            for (ReplayAction a : flatActions) {
+                if (!(a.event instanceof SetBlockEvent sbe) || !sbe.succeed) continue;
+                BlockState from = Block.stateById(sbe.getOldStateId());
+                BlockState to = Block.stateById(sbe.getNewStateId());
+                if (!from.is(Blocks.MOVING_PISTON)) continue;
+                if (to.isAir() || to.is(Blocks.MOVING_PISTON)) continue;
+                m.put(sbe.getPos(), new B36Info(sbe.getNewStateId(), -1, true, false, sbe.getDimension()));
+            }
+
+            // ② 再用录制下来的活塞事件覆盖（方向/伸收/是不是活塞本体都知道，画得更准）
+            for (ReplayAction a : flatActions) {
+                if (a.event instanceof MovingPistonEvent mpe) {
+                    if (mpe.isDespawn()) continue;
+                    m.put(mpe.getPos(), new B36Info(mpe.getMovedBlockStateId(),
+                            mpe.getDirection().get3DDataValue(), mpe.isExtending(),
+                            mpe.isSourcePiston(), mpe.getDimension()));
+                } else if (a.event instanceof MovingPistonTickEvent mpte) {
+                    m.putIfAbsent(mpte.getPos(), new B36Info(mpte.getMovedBlockStateId(),
+                            mpte.getDirection().get3DDataValue(), mpte.isExtending(),
+                            mpte.isSourcePiston(), mpte.getDimension()));
+                }
+            }
+            b36Info = m;
+        }
+        return b36Info;
+    }
+
     private void updateBossBar() {
         if (bossBar == null)
             return;
@@ -544,7 +597,8 @@ public class ReplaySession {
         if (hasPistonActions()) {
             for (int i = 0; i < maxLen; i++) {
                 ReplayAction a = flatActions.get(i);
-                if (a.type != ActionType.LEAF) continue;
+                // 只要不是 EXIT：活塞事件既可能是叶子，也可能是某个作用域（方块事件/邻居更新）的子事件
+                if (a.type == ActionType.EXIT) continue;
                 if (!a.event.isDisplayed()) continue;
                 if (a.event instanceof MovingPistonEvent mpe) {
                     mpe.display(resolveLevel(level, mpe));
@@ -553,6 +607,8 @@ public class ReplaySession {
                 }
             }
         }
+        // 兜底：按世界的真实方块状态再补一次 B36 替身（没录到活塞事件时也得画）
+        renderB36StandIns(level);
 
         // 复用增量维护的栈（只读，别在下面改它）
         List<MTREvent> activeStack = openStackAt(maxLen);
@@ -647,6 +703,60 @@ public class ReplaySession {
         // 兜底：不管掉落物是"重建实体"还是"回放过程中方块逻辑掉出来的"，每步都把选区内的物品清掉，
         // 保证画面上永远看不到一地活塞/粘性活塞（Ray 2026-10-23 要的效果）。
         sweepItemEntities(level);
+    }
+
+    /**
+     * B36 兜底渲染：世界里还挂着 {@code moving_piston} 的位置，必须有替身把它画出来。
+     *
+     * <p>{@code moving_piston} 这个方块自己渲染成空气（它是靠方块实体的渲染器把"正在移动的方块"画出来的），
+     * 而回放只把方块状态写回世界、不会建那份方块实体 ⇒ 冻结状态下看过去就是一格空洞／透明。
+     *
+     * <p>主流程是"从 0 重放到光标"重建活塞替身；但只要那一环没走到（事件被过滤掉、替身实体中途没了、
+     * 维度没对上……），就还是空洞。这里按**世界当前的真实方块状态**再兜一次：位置现在是 B36 且没有
+     * 活着的替身 ⇒ 现场造一个。
+     */
+    private void renderB36StandIns(ServerLevel level) {
+        Map<BlockPos, B36Info> info = ensureB36Info();
+        if (info.isEmpty() || level == null) return;
+
+        String dim = level.dimension().location().toString();
+        int b36 = 0;
+        int made = 0;
+
+        for (Map.Entry<BlockPos, B36Info> e : info.entrySet()) {
+            BlockPos pos = e.getKey();
+            B36Info bi = e.getValue();
+            if (bi.dimension() != null && !bi.dimension().isEmpty() && !bi.dimension().equals(dim)) continue;
+
+            BlockState cur = level.getBlockState(pos);
+            if (!cur.is(Blocks.MOVING_PISTON)) continue;
+            b36++;
+
+            List<UUID> existing = PistonDisplayManager.getPistonDisplayUUIDs(pos);
+            if (existing != null && !existing.isEmpty() && PistonDisplayManager.anyLive(level, existing)) continue;
+
+            BlockState moved = Block.stateById(bi.stateId());
+            if (moved == null || moved.isAir()) continue;
+
+            if (bi.dirId() < 0) {
+                // 只知道方块、不知道方向 ⇒ 就画在 B36 这一格
+                List<UUID> uuids = new ArrayList<>();
+                uuids.add(PistonDisplayManager.spawnStaticBlockDisplay(level, pos, moved, 0, 0, 0));
+                PistonDisplayManager.registerPistonDisplays(pos, uuids);
+            } else {
+                // 复用 MovingPistonEvent 自己的绘制分支（活塞头 / 活塞本体 / 被推的方块）
+                new MovingPistonEvent(currentVirtualTick, pos, bi.stateId(),
+                        Direction.from3DDataValue(bi.dirId()), bi.extending(), bi.sourcePiston(), false, dim)
+                        .display(level, new Vector3f(1, 1, 1));
+            }
+            made++;
+        }
+
+        if (b36 > 0 || made > 0) {
+            MicroTimingReplay.LOGGER.info(
+                    "[mtr-piston] 步 {} | 世界里 B36 {} 处 | 本轮新造替身 {} 处 | 已登记 {} 处",
+                    actionCursor, b36, made, PistonDisplayManager.registeredCount());
+        }
     }
 
     private void sweepItemEntities(ServerLevel level) {

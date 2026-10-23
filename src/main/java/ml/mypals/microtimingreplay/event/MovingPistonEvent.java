@@ -48,6 +48,8 @@ public class MovingPistonEvent extends BlockPosEvent {
     public boolean isExtending() { return extending; }
     public boolean isSourcePiston() { return isSourcePiston; }
     public boolean isDespawn() { return despawn; }
+    /** 正在移动的方块状态（B36 位置要画出来的那个方块）。 */
+    public int getMovedBlockStateId() { return movedBlockStateId; }
 
 
     @Override
@@ -113,8 +115,10 @@ public class MovingPistonEvent extends BlockPosEvent {
         float yOff = facing.getStepY() * extProg;
         float zOff = facing.getStepZ() * extProg;
 
+        // 复用上一轮的同位置替身（避免每步都刷一批实体）——但必须是**还活着**的，
+        // 否则就变成"登记了 UUID 却什么都没画"，画面上就是一片空洞。
         List<UUID> oldUuids = PistonDisplayManager.claimOldPistonDisplay(pos);
-        if (oldUuids != null && !oldUuids.isEmpty()) {
+        if (oldUuids != null && !oldUuids.isEmpty() && PistonDisplayManager.anyLive(level, oldUuids)) {
             PistonDisplayManager.registerPistonDisplays(pos, oldUuids);
             return;
         }

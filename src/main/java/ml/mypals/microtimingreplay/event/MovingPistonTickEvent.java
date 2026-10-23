@@ -58,6 +58,11 @@ public class MovingPistonTickEvent extends BlockPosEvent {
         return isSourcePiston;
     }
 
+    /** 正在移动的方块状态（兜底画 B36 替身时用）。 */
+    public int getMovedBlockStateId() {
+        return movedBlockStateId;
+    }
+
 
     @Override
     public String filterId() {
