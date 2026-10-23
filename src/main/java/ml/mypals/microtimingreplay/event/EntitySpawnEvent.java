@@ -102,6 +102,13 @@ public class EntitySpawnEvent extends Vec3PosEvent {
 
         boolean shouldSpawn = forward != despawn;
 
+        // 回放时不重建"玩家替身"（录制开始时的玩家被存成穿玩家头的盔甲架）
+        if (shouldSpawn
+                && ml.mypals.microtimingreplay.replay.ReplayPrefs.skipPlayerStandIns()
+                && isPlayerStandIn(nbt)) {
+            return;
+        }
+
         // 回放时不重建掉落物（活塞/机器掉出来的物品），否则会堆一地；可在设置里关掉这个行为
         if (shouldSpawn
                 && ml.mypals.microtimingreplay.replay.ReplayPrefs.skipItemEntities()
@@ -116,6 +123,17 @@ public class EntitySpawnEvent extends Vec3PosEvent {
         } else {
             EntityReplayManager.removeEntity(level, uuid);
         }
+    }
+
+    /** 玩家替身＝盔甲架，头盔槽是玩家头颅（旧档没有标记位，所以两种判定都认）。 */
+    private static boolean isPlayerStandIn(CompoundTag tag) {
+        if (tag == null || tag.isEmpty()) return false;
+        if (tag.getBoolean("MTRPlayerStandIn")) return true;
+        if (!"minecraft:armor_stand".equals(tag.getString("id"))) return false;
+        if (!(tag.get("ArmorItems") instanceof net.minecraft.nbt.ListTag armor) || armor.size() < 4) {
+            return false;
+        }
+        return armor.getCompound(3).getString("id").equals("minecraft:player_head");
     }
 
     @Override

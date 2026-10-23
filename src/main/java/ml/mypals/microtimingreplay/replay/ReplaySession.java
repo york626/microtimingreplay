@@ -602,7 +602,10 @@ public class ReplaySession {
             }
         }
 
-        for (int i = activeStack.size() - 1; i >= 0; i--) {
+        // 标记只画当前步：作用域链（阶段/队列/更新/方块实体）的标记会叠成一大片半透明，
+        // 把机器本身糊住；想看全链就在设置里把「标记只画当前步」关掉。
+        int parentStart = ReplayPrefs.markersLeafOnly() ? activeStack.size() : 0;
+        for (int i = activeStack.size() - 1; i >= parentStart; i--) {
             MTREvent parent = activeStack.get(i);
             if (!parent.isDisplayed()) continue;
             BlockPos pos = parent.getMarkerPos();

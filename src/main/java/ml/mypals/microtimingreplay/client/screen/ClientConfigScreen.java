@@ -36,6 +36,8 @@ public class ClientConfigScreen extends Screen {
     private Button scoreboardButton;
     private Button clearMarkersButton;
     private Button skipItemsButton;
+    private Button skipStandsButton;
+    private Button leafOnlyButton;
 
     /** 所有行（按钮 + 标签）+ 基准 y，滚动时只挪按钮，标签跟着 button.getY() 走。 */
     private record Row(Button button, int baseY) {}
@@ -113,10 +115,24 @@ public class ClientConfigScreen extends Screen {
                 b -> MTRClientNetworking.clearMarkers());
         y += ROW_HEIGHT;
 
-        skipItemsButton = row(x, y, skipItemsLabel(), b -> {
+        skipItemsButton = row(x, y, toggleLabel(MTRClientConfig.skipReplayItems()), b -> {
             MTRClientConfig.setSkipReplayItems(!MTRClientConfig.skipReplayItems());
-            MTRClientNetworking.sendReplayPrefs(MTRClientConfig.skipReplayItems());
-            b.setMessage(skipItemsLabel());
+            MTRClientNetworking.sendReplayPrefs();
+            b.setMessage(toggleLabel(MTRClientConfig.skipReplayItems()));
+        });
+        y += ROW_HEIGHT;
+
+        skipStandsButton = row(x, y, toggleLabel(MTRClientConfig.skipPlayerStandIns()), b -> {
+            MTRClientConfig.setSkipPlayerStandIns(!MTRClientConfig.skipPlayerStandIns());
+            MTRClientNetworking.sendReplayPrefs();
+            b.setMessage(toggleLabel(MTRClientConfig.skipPlayerStandIns()));
+        });
+        y += ROW_HEIGHT;
+
+        leafOnlyButton = row(x, y, toggleLabel(MTRClientConfig.markersLeafOnly()), b -> {
+            MTRClientConfig.setMarkersLeafOnly(!MTRClientConfig.markersLeafOnly());
+            MTRClientNetworking.sendReplayPrefs();
+            b.setMessage(toggleLabel(MTRClientConfig.markersLeafOnly()));
         });
 
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
@@ -192,9 +208,8 @@ public class ClientConfigScreen extends Screen {
                 MTRClientConfig.ctrlScrollStep() ? "On" : "Off");
     }
 
-    private Component skipItemsLabel() {
-        return MTRComponent.translatable(MTRClientConfig.skipReplayItems() ? "mtr.config.on" : "mtr.config.off",
-                MTRClientConfig.skipReplayItems() ? "On" : "Off");
+    private Component toggleLabel(boolean value) {
+        return MTRComponent.translatable(value ? "mtr.config.on" : "mtr.config.off", value ? "On" : "Off");
     }
 
     private Component scoreboardLabel() {
@@ -234,6 +249,10 @@ public class ClientConfigScreen extends Screen {
                 MTRComponent.translatable("mtr.config.clear_markers_label", "Clear leftover markers"));
         label(graphics, skipItemsButton,
                 MTRComponent.translatable("mtr.config.skip_items", "回放不生成掉落物"));
+        label(graphics, skipStandsButton,
+                MTRComponent.translatable("mtr.config.skip_stands", "回放不生成玩家替身"));
+        label(graphics, leafOnlyButton,
+                MTRComponent.translatable("mtr.config.leaf_only", "标记只画当前步"));
 
         if (!ClientReplayState.serverHasMod()) {
             graphics.drawString(this.font, MTRComponent.translatable("mtr.config.vanilla_server",

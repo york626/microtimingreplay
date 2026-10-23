@@ -90,8 +90,11 @@ public class MTRClientNetworking {
     }
 
     /** 回放期偏好：是否跳过掉落物实体。 */
-    public static void sendReplayPrefs(boolean skipItemEntities) {
-        send(new MTRPayloads.SetReplayPrefsC2S(skipItemEntities));
+    public static void sendReplayPrefs() {
+        send(new MTRPayloads.SetReplayPrefsC2S(
+                MTRClientConfig.skipReplayItems(),
+                MTRClientConfig.skipPlayerStandIns(),
+                MTRClientConfig.markersLeafOnly()));
     }
 
     /** 清理世界里的标记展示体。 */

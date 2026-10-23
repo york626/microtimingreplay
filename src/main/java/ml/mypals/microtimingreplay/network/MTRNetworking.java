@@ -91,6 +91,8 @@ public class MTRNetworking {
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.SetReplayPrefsC2S.TYPE, (payload, context) -> {
             if (!isAllowed(context.player())) return;
             ml.mypals.microtimingreplay.replay.ReplayPrefs.setSkipItemEntities(payload.skipItemEntities());
+            ml.mypals.microtimingreplay.replay.ReplayPrefs.setSkipPlayerStandIns(payload.skipPlayerStandIns());
+            ml.mypals.microtimingreplay.replay.ReplayPrefs.setMarkersLeafOnly(payload.markersLeafOnly());
         });
 
         // 一键清理世界里残留的标记展示体（所有维度、不分会话）

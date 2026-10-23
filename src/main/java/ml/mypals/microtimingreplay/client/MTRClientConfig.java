@@ -40,6 +40,10 @@ public class MTRClientConfig {
     private static boolean scoreboardVisible = true;
     /** 回放时不要重建掉落物实体（活塞往下掉的那种）。 */
     private static boolean skipReplayItems = true;
+    /** 回放时不重建玩家替身。 */
+    private static boolean skipPlayerStandIns = true;
+    /** 标记只画当前步（不画作用域链）。 */
+    private static boolean markersLeafOnly = true;
 
     private static File configFile() {
         return new File(new File(FabricLoader.getInstance().getConfigDir().toFile(), "mtr"), "client.json");
@@ -132,6 +136,24 @@ public class MTRClientConfig {
         save();
     }
 
+    public static boolean skipPlayerStandIns() {
+        return skipPlayerStandIns;
+    }
+
+    public static void setSkipPlayerStandIns(boolean value) {
+        skipPlayerStandIns = value;
+        save();
+    }
+
+    public static boolean markersLeafOnly() {
+        return markersLeafOnly;
+    }
+
+    public static void setMarkersLeafOnly(boolean value) {
+        markersLeafOnly = value;
+        save();
+    }
+
     public static void setScoreboardVisible(boolean value) {
         scoreboardVisible = value;
         save();
@@ -168,6 +190,8 @@ public class MTRClientConfig {
             if (json.has("ctrlScrollStep")) ctrlScrollStep = json.get("ctrlScrollStep").getAsBoolean();
             if (json.has("scoreboardVisible")) scoreboardVisible = json.get("scoreboardVisible").getAsBoolean();
             if (json.has("skipReplayItems")) skipReplayItems = json.get("skipReplayItems").getAsBoolean();
+            if (json.has("skipPlayerStandIns")) skipPlayerStandIns = json.get("skipPlayerStandIns").getAsBoolean();
+            if (json.has("markersLeafOnly")) markersLeafOnly = json.get("markersLeafOnly").getAsBoolean();
         } catch (Exception e) {
             MicroTimingReplay.LOGGER.error("Failed to read client.json, falling back to defaults", e);
         }
@@ -185,6 +209,8 @@ public class MTRClientConfig {
         root.addProperty("ctrlScrollStep", ctrlScrollStep);
         root.addProperty("scoreboardVisible", scoreboardVisible);
         root.addProperty("skipReplayItems", skipReplayItems);
+        root.addProperty("skipPlayerStandIns", skipPlayerStandIns);
+        root.addProperty("markersLeafOnly", markersLeafOnly);
 
         try {
             if (!file.getParentFile().exists()) {
