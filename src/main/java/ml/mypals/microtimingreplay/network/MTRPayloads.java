@@ -381,6 +381,16 @@ public class MTRPayloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 时间轴侧栏（记分板）显示/隐藏——纯客户端偏好，服务端照办。 */
+    public record SetScoreboardC2S(boolean visible) implements CustomPacketPayload {
+        public static final Type<SetScoreboardC2S> TYPE = MTRPayloads.payloadType("set_scoreboard_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, SetScoreboardC2S> CODEC = StreamCodec.of(
+                (buf, payload) -> buf.writeBoolean(payload.visible()),
+                buf -> new SetScoreboardC2S(buf.readBoolean()));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** 「回放 / 停止回放」——GUI 版，等价于 `/mtr replay start|stop <名字>`。 */
     public record QuickReplayC2S(int action, String profile) implements CustomPacketPayload {
         public static final int ACTION_START = 0;

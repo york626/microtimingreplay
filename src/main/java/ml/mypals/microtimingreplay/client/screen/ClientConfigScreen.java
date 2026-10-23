@@ -32,6 +32,7 @@ public class ClientConfigScreen extends Screen {
     private Button holdButton;
     private Button watchButton;
     private Button ctrlScrollButton;
+    private Button scoreboardButton;
 
     /** Presets for the hold threshold; 0 means the panel appears the instant the key goes down. */
     private static final List<Integer> HOLD_DELAYS = List.of(0, 150, 250, 400, 600);
@@ -85,9 +86,17 @@ public class ClientConfigScreen extends Screen {
             b.setMessage(watchLabel());
         });
 
+        y += ROW_HEIGHT;
         ctrlScrollButton = row(x, y, ctrlScrollLabel(), b -> {
             MTRClientConfig.setCtrlScrollStep(!MTRClientConfig.ctrlScrollStep());
             b.setMessage(ctrlScrollLabel());
+        });
+        y += ROW_HEIGHT;
+
+        scoreboardButton = row(x, y, scoreboardLabel(), b -> {
+            MTRClientConfig.setScoreboardVisible(!MTRClientConfig.scoreboardVisible());
+            MTRClientNetworking.sendScoreboardPref(MTRClientConfig.scoreboardVisible());
+            b.setMessage(scoreboardLabel());
         });
 
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
@@ -138,6 +147,11 @@ public class ClientConfigScreen extends Screen {
                 MTRClientConfig.ctrlScrollStep() ? "On" : "Off");
     }
 
+    private Component scoreboardLabel() {
+        return MTRComponent.translatable(MTRClientConfig.scoreboardVisible() ? "mtr.config.on" : "mtr.config.off",
+                MTRClientConfig.scoreboardVisible() ? "On" : "Off");
+    }
+
     private Component watchLabel() {
         if (ClientReplayState.isWatching()) {
             return MTRComponent.translatable("mtr.config.unwatch", "Stop watching");
@@ -164,6 +178,8 @@ public class ClientConfigScreen extends Screen {
         label(graphics, watchButton, MTRComponent.translatable("mtr.config.subscription", "Subscription"));
         label(graphics, ctrlScrollButton,
                 MTRComponent.translatable("mtr.config.ctrl_scroll", "Ctrl + scroll wheel = step"));
+        label(graphics, scoreboardButton,
+                MTRComponent.translatable("mtr.config.scoreboard", "Timeline sidebar"));
 
         graphics.drawString(this.font, MTRComponent.translatable("mtr.config.keybind",
                         "Hold %s for the hotbar panel — rebind it in Controls",

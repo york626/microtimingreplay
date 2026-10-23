@@ -31,6 +31,8 @@ public class MTRClient implements ClientModInitializer {
             // The server replies with HelloS2C only if it speaks our protocol, which is
             // how the client learns whether to offer the panel at all.
             MTRClientNetworking.sendHello();
+            // 把「时间轴侧栏开关」也同步过去（服务端负责真正关掉记分板）
+            MTRClientNetworking.sendScoreboardPref(MTRClientConfig.scoreboardVisible());
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             ClientReplayState.reset();

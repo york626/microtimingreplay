@@ -54,6 +54,7 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickRecordC2S.TYPE, MTRPayloads.QuickRecordC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.HighlightC2S.TYPE, MTRPayloads.HighlightC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickReplayC2S.TYPE, MTRPayloads.QuickReplayC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.SetScoreboardC2S.TYPE, MTRPayloads.SetScoreboardC2S.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.SessionsS2C.TYPE, MTRPayloads.SessionsS2C.CODEC);
@@ -73,8 +74,13 @@ public class MTRNetworking {
             // Restore before they go: game mode is saved to player data, so a player who
             // logs out mid-follow would otherwise come back stuck in spectator.
             PlayerPositioner.onDisconnect(handler.getPlayer());
+            ml.mypals.microtimingreplay.replay.scoreboard.ScoreboardPrefs.forget(handler.getPlayer());
             MTRClientTracker.forget(handler.getPlayer());
         });
+
+        // 时间轴侧栏 显示/隐藏
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.SetScoreboardC2S.TYPE, (payload, context) ->
+                ml.mypals.microtimingreplay.replay.scoreboard.ScoreboardPrefs.set(context.player(), !payload.visible()));
 
         // 时间轴点行 → 方块高亮（不推进回放）
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.HighlightC2S.TYPE, (payload, context) -> {

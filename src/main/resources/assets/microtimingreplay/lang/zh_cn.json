@@ -352,5 +352,6 @@
     "key.microtimingreplay.step_backward": "回放：后退一小步",
     "mtr.config.step_forward": "前进一小步（点此处去设置）",
     "mtr.config.step_backward": "后退一小步（点此处去设置）",
-    "mtr.config.ctrl_scroll": "Ctrl + 滚轮 前进/后退"
+    "mtr.config.ctrl_scroll": "Ctrl + 滚轮 前进/后退",
+    "mtr.config.scoreboard": "时间轴侧栏（记分板）"
 }

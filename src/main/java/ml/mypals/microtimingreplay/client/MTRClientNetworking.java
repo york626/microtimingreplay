@@ -86,6 +86,11 @@ public class MTRClientNetworking {
         send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_START, profile));
     }
 
+    /** 告诉服务端要不要显示时间轴侧栏（记分板）。 */
+    public static void sendScoreboardPref(boolean visible) {
+        send(new MTRPayloads.SetScoreboardC2S(visible));
+    }
+
     /** GUI「停止回放」。 */
     public static void quickReplayStop(String profile) {
         send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_STOP, profile));

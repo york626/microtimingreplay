@@ -352,5 +352,6 @@
     "key.microtimingreplay.step_backward": "Replay: step backward",
     "mtr.config.step_forward": "Step forward (click to bind)",
     "mtr.config.step_backward": "Step backward (click to bind)",
-    "mtr.config.ctrl_scroll": "Ctrl + scroll wheel = step"
+    "mtr.config.ctrl_scroll": "Ctrl + scroll wheel = step",
+    "mtr.config.scoreboard": "Timeline sidebar"
 }

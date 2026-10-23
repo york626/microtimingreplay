@@ -428,6 +428,7 @@ public class ReplaySession {
 
         List<TimelineGenerator.ScoreLine> lines = TimelineGenerator.generateTimeline(currentFrame, currentAction, stepMap);
         for (ServerPlayer player : onlineSubscribers()) {
+            if (ml.mypals.microtimingreplay.replay.scoreboard.ScoreboardPrefs.hidden(player)) continue;
             VirtualScoreboardManager.updateLines(player, lines);
         }
     }
@@ -1037,17 +1038,19 @@ public class ReplaySession {
      * 所以只是临时高亮，不会留在世界里。
      */
     public void highlightStep(ServerLevel level, int step) {
-        // 反复点行会不断 spawn 展示体、旧的又不消失 ⇒ 看起来就像"幽灵方块"。
-        // 先清一次再按当前光标重画，保证世界里只有「当前步 + 这一次高亮」。
-        renderCurrentState(level, actionCursor);
+        // 关键：整段必须跑在 ReplayContext 里 —— 否则 display() 生成的展示体拿不到会话 tag，
+        // MarkerManager.clearAll(level, sessionId) 会把它当"别人的标记"跳过，于是永久残留
+        // （Ray 看到的"还在产生方块"就是这么来的）。
+        ReplayContext.with(sessionId, () -> {
+            // 反复点行会不断 spawn 展示体，先清一次再按当前光标重画，只留「当前步 + 这一次高亮」
+            renderCurrentState(level, actionCursor);
 
-        List<ReplayAction> flat = getFlatActionsSnapshot();
-        for (int i = flat.size() - 1; i >= 0; i--) {
-            ReplayAction action = flat.get(i);
-            if (action.visibleStepIndex() != step) continue;
-            if (action.event() == null || !action.event().isDisplayed()) continue;
-            action.event().display(resolveLevel(level, action.event()));
-            return;
-        }
+            for (ReplayAction action : getFlatActionsSnapshot().reversed()) {
+                if (action.visibleStepIndex() != step) continue;
+                if (action.event() == null || !action.event().isDisplayed()) continue;
+                action.event().display(resolveLevel(level, action.event()));
+                return;
+            }
+        });
     }
 }
