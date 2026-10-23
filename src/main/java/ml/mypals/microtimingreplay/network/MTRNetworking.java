@@ -168,6 +168,26 @@ public class MTRNetworking {
             ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
                     "[mtr-perf] 开回放前清掉 {} 个残留标记实体", clearedMarkers);
 
+            // 诊断 2：玩家周围 64 格内所有实体的类型/标签统计（不依赖选区，能看出有没有展示体）
+            try {
+                java.util.Map<String, Integer> nearby = new java.util.TreeMap<>();
+                var box = player.getBoundingBox().inflate(64);
+                for (net.minecraft.server.level.ServerLevel level : player.server.getAllLevels()) {
+                    if (level != player.serverLevel()) continue;
+                    for (net.minecraft.world.entity.Entity entity : level.getAllEntities()) {
+                        if (!box.contains(entity.position())) continue;
+                        String type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+                                .getKey(entity.getType()).toString();
+                        String tags = entity.getTags().isEmpty()
+                                ? "" : " tags=" + String.join(",", new java.util.TreeSet<>(entity.getTags()));
+                        nearby.merge(type + tags, 1, Integer::sum);
+                    }
+                }
+                nearby.forEach((key, count) -> ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                        "[mtr-perf] 周边实体 {} ×{}", key, count));
+            } catch (Throwable ignored) {
+            }
+
             // 诊断：把选区里的「展示体」按 tag 分组打个统计，用来判断半透明方块到底是谁生成的
             try {
                 java.util.Map<String, Integer> groups = new java.util.TreeMap<>();
