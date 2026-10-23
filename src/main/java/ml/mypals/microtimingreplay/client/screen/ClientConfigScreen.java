@@ -151,6 +151,13 @@ public class ClientConfigScreen extends Screen {
         label(graphics, followButton, MTRComponent.translatable("mtr.config.follow", "Timeline follows cursor"));
         label(graphics, holdButton, MTRComponent.translatable("mtr.config.hold", "Hold before panel opens"));
         label(graphics, watchButton, MTRComponent.translatable("mtr.config.subscription", "Subscription"));
+        // 前进/后退热键：只显示当前绑定 + 去哪改（原版控制界面自己会列出这两条）
+        graphics.drawString(this.font, MTRComponent.translatable(
+                        "mtr.config.step_keys",
+                        "Step keys: forward = %s · backward = %s (rebind in Controls)",
+                        MTRKeys.stepForward == null ? "-" : MTRKeys.stepForward.getTranslatedKeyMessage().getString(),
+                        MTRKeys.stepBackward == null ? "-" : MTRKeys.stepBackward.getTranslatedKeyMessage().getString()),
+                LABEL_X, this.height - 64, MTRWidgets.TEXT_DIM);
 
         graphics.drawString(this.font, MTRComponent.translatable("mtr.config.keybind",
                         "Hold %s for the hotbar panel — rebind it in Controls",

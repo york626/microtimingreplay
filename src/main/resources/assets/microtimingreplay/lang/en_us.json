@@ -347,5 +347,9 @@
     "mtr.panel.replay_stop": "■ Stop replay",
     "mtr.quick.replay": "▶ Replay this",
     "mtr.quick.replay_stop": "■ Stop replay",
-    "mtr.quick.no_profile": "Nothing recorded yet: press “Start recording” first"
+    "mtr.quick.no_profile": "Nothing recorded yet: press “Start recording” first",
+    "key.microtimingreplay.step_forward": "Replay: step forward",
+    "key.microtimingreplay.step_backward": "Replay: step backward",
+    "mtr.config.step_forward": "Step forward (click to bind)",
+    "mtr.config.step_backward": "Step backward (click to bind)"
 }

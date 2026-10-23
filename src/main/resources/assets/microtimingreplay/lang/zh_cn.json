@@ -347,5 +347,9 @@
     "mtr.panel.replay_stop": "■ 停止回放",
     "mtr.quick.replay": "▶ 回放这段",
     "mtr.quick.replay_stop": "■ 停止回放",
-    "mtr.quick.no_profile": "还没有录过东西：先用「开始动态记录」录一段"
+    "mtr.quick.no_profile": "还没有录过东西：先用「开始动态记录」录一段",
+    "key.microtimingreplay.step_forward": "回放：前进一小步",
+    "key.microtimingreplay.step_backward": "回放：后退一小步",
+    "mtr.config.step_forward": "前进一小步（点此处去设置）",
+    "mtr.config.step_backward": "后退一小步（点此处去设置）"
 }

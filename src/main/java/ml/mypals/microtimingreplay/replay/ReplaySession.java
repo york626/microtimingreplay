@@ -274,6 +274,19 @@ public class ReplaySession {
         rowPrefixRevision = revision;
     }
 
+    /**
+     * 时间轴的整表行（同一场回放里固定不变）⇒ 建一次就够。
+     * 以前每次开面板/重新订阅都要重建 10 万行，每行还要造一个 Component，服务端会顿一下。
+     */
+    private java.util.List<ml.mypals.microtimingreplay.network.MTRPayloads.TimelineRow> timelineRowsCache;
+
+    public java.util.List<ml.mypals.microtimingreplay.network.MTRPayloads.TimelineRow> timelineRows() {
+        if (timelineRowsCache == null) {
+            timelineRowsCache = ml.mypals.microtimingreplay.network.TimelineSnapshot.buildRows(this);
+        }
+        return timelineRowsCache;
+    }
+
     public long getCurrentVirtualTick() {
         return currentVirtualTick;
     }

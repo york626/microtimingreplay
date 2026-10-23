@@ -32,7 +32,8 @@ import static ml.mypals.microtimingreplay.client.screen.MTRWidgets.playButtonCli
 public class MTRPanelScreen extends Screen {
 
     private static final int PANEL_WIDTH = 430;
-    private static final int PANEL_HEIGHT = 64;
+    /** 面板高度：卡片按宽度换行，行数变了这里跟着变（见 position()）。 */
+    private int panelHeight = 64;
     /** Clearance for the hotbar plus the experience bar underneath the panel. */
     private static final int BOTTOM_MARGIN = 46;
 
@@ -52,11 +53,14 @@ public class MTRPanelScreen extends Screen {
     @Override
     protected void init() {
         panelX = (this.width - PANEL_WIDTH) / 2;
-        panelY = this.height - BOTTOM_MARGIN - PANEL_HEIGHT;
+        panelY = this.height - BOTTOM_MARGIN - panelHeight;
 
         // Cheap enough to refresh every time the panel comes up, and it means the
         // timeline screen never opens onto stale rows.
-        if (ClientReplayState.isWatching()) {
+        // 只在手上没有「这份回放」的时间轴时才拉：
+        // 原来每次按住 Alt 都请求一次整表（7 万多行），一开面板就卡一下。
+        if (ClientReplayState.isWatching()
+                && !ClientReplayState.hasTimelineFor(ClientReplayState.subscribed())) {
             MTRClientNetworking.requestTimeline();
         }
         MTRClientNetworking.requestFilter();
@@ -142,22 +146,48 @@ public class MTRPanelScreen extends Screen {
         return position(cards);
     }
 
-    /** Centres the row inside the panel and stamps each card's final x. */
+    /**
+     * 卡片按面板宽度**自动换行**，每行再整体居中 —— 回放时卡片多，原来一行排不下就会溢出到面板外。
+     * 行数决定面板高度，面板再贴底重新定位。
+     */
     private List<Card> position(List<Card> cards) {
-        if (cards.isEmpty()) return cards;
-
-        int totalWidth = (cards.size() - 1) * CARD_GAP;
-        for (Card card : cards) {
-            totalWidth += card.width();
+        if (cards.isEmpty()) {
+            panelHeight = 64;
+            panelY = this.height - BOTTOM_MARGIN - panelHeight;
+            return cards;
         }
 
-        int x = panelX + (PANEL_WIDTH - totalWidth) / 2;
-        int y = panelY + 24;
+        int maxRowWidth = PANEL_WIDTH - 16;
+        List<List<Card>> rows = new ArrayList<>();
+        List<Card> row = new ArrayList<>();
+        int rowWidth = 0;
+        for (Card card : cards) {
+            int add = (row.isEmpty() ? 0 : CARD_GAP) + card.width();
+            if (!row.isEmpty() && rowWidth + add > maxRowWidth) {
+                rows.add(row);
+                row = new ArrayList<>();
+                rowWidth = 0;
+                add = card.width();
+            }
+            row.add(card);
+            rowWidth += add;
+        }
+        if (!row.isEmpty()) rows.add(row);
+
+        panelHeight = 22 + rows.size() * (CARD_HEIGHT + CARD_GAP) + 6;
+        panelY = this.height - BOTTOM_MARGIN - panelHeight;
 
         List<Card> placed = new ArrayList<>(cards.size());
-        for (Card card : cards) {
-            placed.add(new Card(card.label(), x, y, card.width(), card.active(), card.onLeft(), card.onRight()));
-            x += card.width() + CARD_GAP;
+        int y = panelY + 22;
+        for (List<Card> r : rows) {
+            int totalWidth = (r.size() - 1) * CARD_GAP;
+            for (Card c : r) totalWidth += c.width();
+            int x = panelX + (PANEL_WIDTH - totalWidth) / 2;
+            for (Card c : r) {
+                placed.add(new Card(c.label(), x, y, c.width(), c.active(), c.onLeft(), c.onRight()));
+                x += c.width() + CARD_GAP;
+            }
+            y += CARD_HEIGHT + CARD_GAP;
         }
         return placed;
     }
@@ -169,7 +199,7 @@ public class MTRPanelScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        MTRWidgets.panel(graphics, panelX, panelY, PANEL_WIDTH, PANEL_HEIGHT,
+        MTRWidgets.panel(graphics, panelX, panelY, PANEL_WIDTH, panelHeight,
                 MTRWidgets.PANEL_BG, MTRWidgets.PANEL_BORDER);
 
         graphics.drawCenteredString(this.font, statusLine(), panelX + PANEL_WIDTH / 2, panelY + 7, MTRWidgets.TEXT);
@@ -181,7 +211,7 @@ public class MTRPanelScreen extends Screen {
         }
 
         graphics.drawCenteredString(this.font, hintLine(), panelX + PANEL_WIDTH / 2,
-                panelY + PANEL_HEIGHT - 13, MTRWidgets.TEXT_DIM);
+                panelY + panelHeight - 13, MTRWidgets.TEXT_DIM);
 
         super.render(graphics, mouseX, mouseY, partialTick);
     }

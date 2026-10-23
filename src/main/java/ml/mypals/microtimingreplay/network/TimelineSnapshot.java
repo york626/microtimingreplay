@@ -21,6 +21,11 @@ public class TimelineSnapshot {
 
     public record Result(List<MTRPayloads.TimelineRow> rows, int cursorRow) {}
 
+    /** 只建行（同一场回放的行是固定的，调用方可以缓存）。 */
+    public static List<MTRPayloads.TimelineRow> buildRows(ReplaySession session) {
+        return build(session).rows();
+    }
+
     public static Result build(ReplaySession session) {
         List<ReplaySession.ReplayAction> flat = session.getFlatActionsSnapshot();
         int cursor = session.getActionCursor();

@@ -253,9 +253,10 @@ public class MTRNetworking {
             return;
         }
 
-        TimelineSnapshot.Result snapshot = TimelineSnapshot.build(session);
+        // 行表按会话缓存（见 ReplaySession#timelineRows），游标走 O(1) 的前缀表
         ServerPlayNetworking.send(player,
-                new MTRPayloads.TimelineS2C(session.sessionId(), snapshot.cursorRow(), snapshot.rows()));
+                new MTRPayloads.TimelineS2C(session.sessionId(),
+                        session.rowCursor().cursorRow(), session.timelineRows()));
     }
 
     public static void broadcastCursor(ReplaySession session, List<ServerPlayer> subscribers) {

@@ -134,6 +134,11 @@ public class ClientReplayState {
         return rows;
     }
 
+    /** 手上这份时间轴是不是就是 {@code profile} 的（是就不用再跟服务端要一次）。 */
+    public static boolean hasTimelineFor(String profile) {
+        return profile != null && !profile.isEmpty() && profile.equals(timelineProfile) && !rows.isEmpty();
+    }
+
     public static boolean hasTimeline() {
         return !rows.isEmpty();
     }
