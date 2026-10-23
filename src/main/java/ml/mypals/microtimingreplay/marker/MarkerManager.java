@@ -20,8 +20,9 @@ public final class MarkerManager {
      * 「一键清理」用：把所有维度里、任何 mtr 标记/回放实体都删掉 —— 不看会话、也不管是不是活塞。
      * （{@link #clearAll} 会跳过活塞展示体，那是给正常渲染流程用的，不适合"清残留"。）
      */
-    public static void clearEveryMarker(ServerLevel level) {
-        if (level == null) return;
+    public static int clearEveryMarker(ServerLevel level) {
+        if (level == null) return 0;
+        int removed = 0;
         for (ServerLevel sl : level.getServer().getAllLevels()) {
             List<Entity> toDiscard = new ArrayList<>();
             for (Entity entity : sl.getAllEntities()) {
@@ -34,8 +35,10 @@ public final class MarkerManager {
             }
             for (Entity entity : toDiscard) {
                 entity.discard();
+                removed++;
             }
         }
+        return removed;
     }
 
     public static void clearAll(ServerLevel level, String sessionId) {

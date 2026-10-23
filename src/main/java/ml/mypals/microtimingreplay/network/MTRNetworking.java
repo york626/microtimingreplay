@@ -158,6 +158,18 @@ public class MTRNetworking {
                         ReplayManager.isRunning(name) ? "这个配置档已经在回放中：" + name : "正在录制中，先停止录制"));
                 return;
             }
+            // 开回放前先把世界里所有 mtr 标记清干净（包括旧版本/旧会话留下的孤儿）。
+            // 它们带着上一场回放的 session tag，正常渲染流程会当成"别人的标记"跳过，于是永远钉在世界里。
+            int clearedMarkers = 0;
+            for (net.minecraft.server.level.ServerLevel level : player.server.getAllLevels()) {
+                ml.mypals.microtimingreplay.marker.PistonDisplayManager.clearAll(level);
+                clearedMarkers += ml.mypals.microtimingreplay.marker.MarkerManager.clearEveryMarker(level);
+            }
+            if (clearedMarkers > 0) {
+                ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                        "[mtr-perf] 开回放前清掉 {} 个残留标记实体", clearedMarkers);
+            }
+
             // 他想边逐步边看，所以默认先把时间冻上（等价 /tick freeze），省一步
             net.minecraft.server.ServerTickRateManager tickRate = player.server.tickRateManager();
             if (!tickRate.isFrozen()) {
