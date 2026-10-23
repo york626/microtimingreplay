@@ -57,6 +57,7 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.SetScoreboardC2S.TYPE, MTRPayloads.SetScoreboardC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.ListProfilesC2S.TYPE, MTRPayloads.ListProfilesC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.DeleteProfileC2S.TYPE, MTRPayloads.DeleteProfileC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.ClearMarkersC2S.TYPE, MTRPayloads.ClearMarkersC2S.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.ProfileListS2C.TYPE, MTRPayloads.ProfileListS2C.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
@@ -84,6 +85,18 @@ public class MTRNetworking {
         // 回放选择页：要一份可回放的录制列表（按文件改动时间倒序，最多 40 条）
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.ListProfilesC2S.TYPE, (payload, context) ->
                 sendProfileList(context.player()));
+
+        // 一键清理世界里残留的标记展示体（所有维度、不分会话）
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.ClearMarkersC2S.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (!isAllowed(player)) return;
+            for (net.minecraft.server.level.ServerLevel level : player.server.getAllLevels()) {
+                ml.mypals.microtimingreplay.marker.MarkerManager.clearAll(level, null);
+                ml.mypals.microtimingreplay.marker.PistonDisplayManager.clearAll(level);
+            }
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("已清理世界里的标记"), true);
+        });
 
         // 删除一份录制（正在放的话先停掉，否则文件被占）
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.DeleteProfileC2S.TYPE, (payload, context) -> {

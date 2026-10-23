@@ -361,5 +361,7 @@
     "mtr.picker.playing": "正在回放 · 点此停止",
     "mtr.picker.empty": "还没有录制：先用「动态记录」录一段",
     "mtr.picker.detail": "%s 刻 · %s 事件",
-    "mtr.picker.scroll": "滚轮翻页  %s/%s"
+    "mtr.picker.scroll": "滚轮翻页  %s/%s",
+    "mtr.config.clear_markers": "清理",
+    "mtr.config.clear_markers_label": "清理世界里的残留标记"
 }

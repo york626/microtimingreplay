@@ -361,5 +361,7 @@
     "mtr.picker.playing": "Playing · click to stop",
     "mtr.picker.empty": "Nothing recorded yet",
     "mtr.picker.detail": "%s ticks · %s events",
-    "mtr.picker.scroll": "scroll  %s/%s"
+    "mtr.picker.scroll": "scroll  %s/%s",
+    "mtr.config.clear_markers": "Clear",
+    "mtr.config.clear_markers_label": "Clear leftover markers"
 }

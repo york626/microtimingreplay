@@ -89,6 +89,11 @@ public class MTRClientNetworking {
         send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_START, profile));
     }
 
+    /** 清理世界里的标记展示体。 */
+    public static void clearMarkers() {
+        send(MTRPayloads.ClearMarkersC2S.INSTANCE);
+    }
+
     /** 删掉某一份录制。 */
     public static void deleteProfile(String name) {
         send(new MTRPayloads.DeleteProfileC2S(name));

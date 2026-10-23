@@ -34,6 +34,7 @@ public class ClientConfigScreen extends Screen {
     private Button watchButton;
     private Button ctrlScrollButton;
     private Button scoreboardButton;
+    private Button clearMarkersButton;
 
     /** 所有行（按钮 + 标签）+ 基准 y，滚动时只挪按钮，标签跟着 button.getY() 走。 */
     private record Row(Button button, int baseY) {}
@@ -104,6 +105,11 @@ public class ClientConfigScreen extends Screen {
             MTRClientNetworking.sendScoreboardPref(MTRClientConfig.scoreboardVisible());
             b.setMessage(scoreboardLabel());
         });
+        y += ROW_HEIGHT;
+
+        clearMarkersButton = row(x, y,
+                MTRComponent.translatable("mtr.config.clear_markers", "清理"),
+                b -> MTRClientNetworking.clearMarkers());
 
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
                 b -> onClose()).bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
@@ -211,6 +217,8 @@ public class ClientConfigScreen extends Screen {
                 MTRComponent.translatable("mtr.config.ctrl_scroll", "Ctrl + scroll wheel = step"));
         label(graphics, scoreboardButton,
                 MTRComponent.translatable("mtr.config.scoreboard", "Timeline sidebar"));
+        label(graphics, clearMarkersButton,
+                MTRComponent.translatable("mtr.config.clear_markers_label", "Clear leftover markers"));
 
         if (!ClientReplayState.serverHasMod()) {
             graphics.drawString(this.font, MTRComponent.translatable("mtr.config.vanilla_server",

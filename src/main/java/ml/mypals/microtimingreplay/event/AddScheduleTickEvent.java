@@ -112,18 +112,23 @@ public class AddScheduleTickEvent extends BlockPosEvent {
         return event;
     }
 
+    /**
+     * 计划刻的三行数字，格式/配色照 YACA 的「可视化计划刻」来：
+     * <b>红 = 触发时间（还剩几刻）</b>、<b>绿 = 优先级</b>、<b>蓝 = 创建顺序（子顺序）</b>。
+     * 这样回放时不用装 YACA 也能一眼看出"这一 tick 排的是哪个计划刻、排第几"。
+     */
     @Override
     public void display(ServerLevel level, Vector3f scale) {
         super.display(level, scale);
         BlockPos pos = getPos();
-        Component text = Component.literal(getTypeId()).withStyle(ChatFormatting.YELLOW)
-                .append(Component.literal("\n"))
-                .append(Component.literal( " Tri: " + triggerTick))
-                .append(Component.literal(" | ").withStyle(ChatFormatting.WHITE))
-                .append(Component.literal( " Pri: " + priority)
-                .append(Component.literal(" | ").withStyle(ChatFormatting.WHITE))
-                .append(Component.literal( " Sub: " + subTickOrder)));
 
-         MTRMarker.spawnTextDisplay(level, pos.getX() + 0.5, pos.getY() + 1.2, pos.getZ() + 0.5, text, 0.7f);
+        long remaining = triggerTick - getTick();
+        Component text = Component.literal("T:" + remaining).withStyle(ChatFormatting.RED)
+                .append(Component.literal("\n").withStyle(ChatFormatting.RESET))
+                .append(Component.literal("P:" + priority).withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("\n").withStyle(ChatFormatting.RESET))
+                .append(Component.literal("S:" + subTickOrder).withStyle(ChatFormatting.BLUE));
+
+        MTRMarker.spawnTextDisplay(level, pos.getX() + 0.5, pos.getY() + 1.25, pos.getZ() + 0.5, text, 0.65f);
     }
 }

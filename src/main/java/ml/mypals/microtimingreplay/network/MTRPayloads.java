@@ -381,6 +381,16 @@ public class MTRPayloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 把世界里残留的标记展示体清干净（设置页那个「清理标记」按钮）。 */
+    public record ClearMarkersC2S() implements CustomPacketPayload {
+        public static final ClearMarkersC2S INSTANCE = new ClearMarkersC2S();
+        public static final Type<ClearMarkersC2S> TYPE = MTRPayloads.payloadType("clear_markers_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ClearMarkersC2S> CODEC =
+                StreamCodec.unit(INSTANCE);
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** 要一份「可回放的录制列表」（回放选择页用）。 */
     public record ListProfilesC2S() implements CustomPacketPayload {
         public static final ListProfilesC2S INSTANCE = new ListProfilesC2S();
