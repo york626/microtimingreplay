@@ -171,6 +171,7 @@ public class MTRNetworking {
             // 诊断：把选区里的「展示体」按 tag 分组打个统计，用来判断半透明方块到底是谁生成的
             try {
                 java.util.Map<String, Integer> groups = new java.util.TreeMap<>();
+                java.util.List<net.minecraft.world.entity.Entity> foreignToRemove = new java.util.ArrayList<>();
                 MTRProfile started = ProfileManager.loadProfile(name);
                 for (net.minecraft.server.level.ServerLevel level : player.server.getAllLevels()) {
                     String dim = level.dimension().location().toString();
@@ -194,10 +195,25 @@ public class MTRNetworking {
                                 ? "(无 tag) " + entity.getType().toString()
                                 : String.join(",", new java.util.TreeSet<>(entity.getTags()));
                         groups.merge(key, 1, Integer::sum);
+
+                        // 不是 MTR 的展示体（比如 YACA 的计划刻/更新可视化）也一起删：
+                        // 回放期间世界是冻结的，它们靠 tick 计数的"存活 100 刻"永远不会到期，
+                        // 于是一直钉在那里，看着就像一堆半透明方块。
+                        if (!ml.mypals.microtimingreplay.util.DisplayUtils.isMarker(entity)) {
+                            foreignToRemove.add(entity);
+                        }
                     }
                 }
                 groups.forEach((key, count) -> ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
                         "[mtr-perf] 区内展示体 {} ×{}", key, count));
+                // 先收集再删：直接遍历 getAllEntities() 时 discard 会踩并发修改
+                for (net.minecraft.world.entity.Entity entity : foreignToRemove) {
+                    entity.discard();
+                }
+                if (!foreignToRemove.isEmpty()) {
+                    ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                            "[mtr-perf] 清掉 {} 个其它模组的展示体（YACA 可视化之类）", foreignToRemove.size());
+                }
             } catch (Throwable ignored) {
             }
 
