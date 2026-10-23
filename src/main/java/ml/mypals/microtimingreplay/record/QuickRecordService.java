@@ -136,15 +136,48 @@ public final class QuickRecordService {
         broadcast(server, capture(""));
     }
 
-    /** 只读快照（不发包）。 */
+    /** 只读快照（不发包）。空闲时也带上「最近一份配置档」，GUI 的「回放」按钮才知道该放哪个。 */
     public static State capture(String message) {
         if (MTRState.getCurrentState() != MTRState.State.RECORDING || MTRState.getActiveProfile() == null) {
-            return State.idle(message);
+            String latest = latestProfileName();
+            if (latest.isEmpty()) {
+                return State.idle(message);
+            }
+            MTRProfile profile = ProfileManager.loadProfile(latest);
+            return new State(false, latest,
+                    profile == null ? 0 : profile.getTicksRecorded(),
+                    profile == null ? 0 : countEvents(profile),
+                    MAX_TICKS, message);
         }
         MTRProfile profile = MTRState.getActiveProfile();
         int ticks = (int) Math.max(0,
                 MicroTimingReplay.server.getTickCount() - MTRState.getRecordStartTick());
         return new State(true, profile.getName(), ticks, countEvents(profile), MAX_TICKS, message);
+    }
+
+    /** 单个玩家推送一次当前状态（进服时用，让 GUI 立刻知道最近录过什么）。 */
+    public static void pushTo(ServerPlayer player) {
+        if (player == null || !MTRNetworking.isAllowed(player)) return;
+        State state = capture("");
+        ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(
+                state.recording(), state.profile(), state.ticks(), state.events(),
+                state.limit(), state.message()));
+    }
+
+    /** 磁盘上最近改动的那份配置档（没有就返回空串）。 */
+    private static String latestProfileName() {
+        MinecraftServer server = MicroTimingReplay.server;
+        if (server == null) return "";
+        String best = "";
+        long bestTime = -1;
+        for (String name : ProfileManager.listProfiles()) {
+            java.io.File file = ml.mypals.microtimingreplay.profile.WorldScopedStorage.getProfileFile(name);
+            if (file != null && file.exists() && file.lastModified() > bestTime) {
+                bestTime = file.lastModified();
+                best = name;
+            }
+        }
+        return best;
     }
 
     private static void broadcast(MinecraftServer server, State state) {

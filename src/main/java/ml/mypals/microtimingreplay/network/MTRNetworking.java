@@ -2,6 +2,9 @@ package ml.mypals.microtimingreplay.network;
 
 import ml.mypals.microtimingreplay.config.RecordingEventRegistry;
 import ml.mypals.microtimingreplay.config.RecordingFilterConfig;
+import ml.mypals.microtimingreplay.MTRState;
+import ml.mypals.microtimingreplay.profile.MTRProfile;
+import ml.mypals.microtimingreplay.profile.ProfileManager;
 import ml.mypals.microtimingreplay.record.QuickRecordService;
 import ml.mypals.microtimingreplay.replay.PlayerPositioner;
 import ml.mypals.microtimingreplay.replay.ReplayContext;
@@ -49,6 +52,8 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.SetFilterC2S.TYPE, MTRPayloads.SetFilterC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.ResetFilterC2S.TYPE, MTRPayloads.ResetFilterC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickRecordC2S.TYPE, MTRPayloads.QuickRecordC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.HighlightC2S.TYPE, MTRPayloads.HighlightC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickReplayC2S.TYPE, MTRPayloads.QuickReplayC2S.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.SessionsS2C.TYPE, MTRPayloads.SessionsS2C.CODEC);
@@ -71,6 +76,48 @@ public class MTRNetworking {
             MTRClientTracker.forget(handler.getPlayer());
         });
 
+        // 时间轴点行 → 方块高亮（不推进回放）
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.HighlightC2S.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (!isAllowed(player)) return;
+            ReplaySession session = ReplayManager.subscribedSession(player);
+            if (session == null || !session.isRunning()) return;
+            session.highlightStep(player.serverLevel(), payload.step());
+        });
+
+        // GUI「回放 / 停止回放」：等价 /mtr replay start|stop
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.QuickReplayC2S.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (!isAllowed(player)) return;
+
+            String name = payload.profile();
+            if (payload.action() == MTRPayloads.QuickReplayC2S.ACTION_STOP) {
+                ReplayManager.stop(name);
+                sendSessions(player);
+                return;
+            }
+
+            MTRProfile profile = ProfileManager.loadProfile(name);
+            if (profile == null) {
+                ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(false, name, 0, 0,
+                        5000, "找不到配置档：" + name));
+                return;
+            }
+            if (!MTRState.canStartReplay() || ReplayManager.isRunning(name)) {
+                ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(false, name, 0, 0, 5000,
+                        ReplayManager.isRunning(name) ? "这个配置档已经在回放中：" + name : "正在录制中，先停止录制"));
+                return;
+            }
+            if (ReplayManager.start(profile) == null) {
+                ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(false, name, 0, 0, 5000,
+                        "回放启动失败：" + name));
+                return;
+            }
+            ReplayManager.subscribe(player, name);
+            sendSessions(player);
+            ServerPlayNetworking.send(player, new MTRPayloads.OpenScreenS2C(MTRPayloads.OpenScreenS2C.TIMELINE));
+        });
+
         // 「动态记录」：客户端只送选区与名字，建配置档 / 加区域 / 开录全在服务端做
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.QuickRecordC2S.TYPE, (payload, context) -> {
             ServerPlayer player = context.player();
@@ -90,6 +137,7 @@ public class MTRNetworking {
             MTRClientTracker.onHello(player, payload.protocol());
             ServerPlayNetworking.send(player, new MTRPayloads.HelloS2C(MTRPayloads.PROTOCOL_VERSION, isAllowed(player)));
             sendSessions(player);
+            QuickRecordService.pushTo(player);
         });
 
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.SubscribeC2S.TYPE, (payload, context) -> {

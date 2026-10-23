@@ -93,6 +93,19 @@ public class MTRPanelScreen extends Screen {
         } else {
             cards.add(new Card(MTRComponent.translatable("mtr.panel.quick", "动态记录"), 0, 0, 72, false,
                     () -> this.minecraft.setScreen(new QuickRecordScreen(this)), null));
+            // 录过东西就把「回放」摆在旁边，一步进时间轴
+            String lastProfile = QuickRecordState.profile();
+            if (!lastProfile.isEmpty()) {
+                if (ClientReplayState.runningSessions().contains(lastProfile)) {
+                    cards.add(new Card(
+                            MTRComponent.translatable("mtr.panel.replay_stop", "■ 停止回放"), 0, 0, 88, false,
+                            () -> MTRClientNetworking.quickReplayStop(lastProfile), null));
+                } else {
+                    cards.add(new Card(
+                            MTRComponent.translatable("mtr.panel.replay", "▶ 回放 %s", lastProfile), 0, 0, 104, false,
+                            () -> MTRClientNetworking.quickReplayStart(lastProfile), null));
+                }
+            }
         }
 
         if (ClientReplayState.isWatching()) {

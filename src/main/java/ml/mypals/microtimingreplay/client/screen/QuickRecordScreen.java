@@ -1,5 +1,6 @@
 package ml.mypals.microtimingreplay.client.screen;
 
+import ml.mypals.microtimingreplay.client.ClientReplayState;
 import ml.mypals.microtimingreplay.client.LitematicaSelection;
 import ml.mypals.microtimingreplay.client.MTRClientNetworking;
 import ml.mypals.microtimingreplay.client.QuickRecordState;
@@ -37,6 +38,7 @@ public class QuickRecordScreen extends Screen {
     @Override
     protected void init() {
         this.lastRecording = QuickRecordState.isRecording();
+        this.lastReplaying = isReplaying();
         this.selection = LitematicaSelection.capture();
 
         int left = (this.width - PANEL_WIDTH) / 2;
@@ -62,13 +64,46 @@ public class QuickRecordScreen extends Screen {
                 .bounds(left + PANEL_WIDTH / 2 - 50, top + 114, 100, 20).build());
 
         addRenderableWidget(Button.builder(recordButtonLabel(), b -> onRecordButton())
-                .bounds(left + PANEL_WIDTH / 2 - 90, top + 56, 180, 24).build());
+                .bounds(left + 8, top + 56, 150, 24).build());
+
+        addRenderableWidget(Button.builder(replayButtonLabel(), b -> onReplayButton())
+                .bounds(left + PANEL_WIDTH - 158, top + 56, 150, 24).build());
     }
 
     private Component recordButtonLabel() {
         return QuickRecordState.isRecording()
                 ? MTRComponent.translatable("mtr.quick.stop", "■ 停止记录")
                 : MTRComponent.translatable("mtr.quick.start", "● 开始动态记录");
+    }
+
+    private Component replayButtonLabel() {
+        if (isReplaying()) {
+            return MTRComponent.translatable("mtr.quick.replay_stop", "■ 停止回放");
+        }
+        return MTRComponent.translatable("mtr.quick.replay", "▶ 回放这段");
+    }
+
+    /** 当前这份配置档是否正在回放（以服务端推下来的 sessions 列表为准）。 */
+    private boolean isReplaying() {
+        String profile = QuickRecordState.profile();
+        return !profile.isEmpty() && ClientReplayState.runningSessions().contains(profile);
+    }
+
+    private void onReplayButton() {
+        String profile = QuickRecordState.profile();
+        if (profile.isEmpty()) {
+            this.hint = MTRComponent.translatable("mtr.quick.no_profile",
+                    "还没有录过东西：先用「开始动态记录」录一段").getString();
+            return;
+        }
+        this.hint = "";
+        if (isReplaying()) {
+            MTRClientNetworking.quickReplayStop(profile);
+            return;
+        }
+        MTRClientNetworking.quickReplayStart(profile);
+        // 启动成功后服务端会推 OpenScreen(TIMELINE)，这里先关界面让玩家看到世界
+        this.minecraft.setScreen(null);
     }
 
     private void onRecordButton() {
@@ -97,13 +132,16 @@ public class QuickRecordScreen extends Screen {
     @Override
     public void tick() {
         // 只在「录 / 没录」翻转时重建按钮，避免每刻重建导致焦点乱跳
-        if (this.lastRecording != QuickRecordState.isRecording()) {
+        boolean replaying = isReplaying();
+        if (this.lastRecording != QuickRecordState.isRecording() || this.lastReplaying != replaying) {
             this.lastRecording = QuickRecordState.isRecording();
+            this.lastReplaying = replaying;
             this.rebuildWidgets();
         }
     }
 
     private boolean lastRecording;
+    private boolean lastReplaying;
 
     @Override
     public boolean isPauseScreen() {

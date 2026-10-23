@@ -342,5 +342,10 @@
     "mtr.quick.no_selection": "No selection: box an area in Litematica first",
     "mtr.hud.recording": "● REC %s/%s · %s events",
     "mtr.hud.profile": "Profile: %s",
-    "mtr.panel.record_stop": "■ Stop recording (%s)"
+    "mtr.panel.record_stop": "■ Stop recording (%s)",
+    "mtr.panel.replay": "▶ Replay %s",
+    "mtr.panel.replay_stop": "■ Stop replay",
+    "mtr.quick.replay": "▶ Replay this",
+    "mtr.quick.replay_stop": "■ Stop replay",
+    "mtr.quick.no_profile": "Nothing recorded yet: press “Start recording” first"
 }

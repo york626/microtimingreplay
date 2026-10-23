@@ -934,4 +934,22 @@ public class ReplaySession {
             level.getServer().tickRateManager().stepGameIfPaused(2);
         return crossed;
     }
+
+    /**
+     * 「点时间轴某一行 → 方块高亮一下」（不推进光标）。
+     *
+     * <p>直接复用各事件自己的 {@code display()}：它按事件类型决定是给实体上发光、还是生成一个
+     * 方块展示体。这些展示体带本会话的 tag，下一次 {@code renderCurrentState} 会照常清掉，
+     * 所以只是临时高亮，不会留在世界里。
+     */
+    public void highlightStep(ServerLevel level, int step) {
+        List<ReplayAction> flat = getFlatActionsSnapshot();
+        for (int i = flat.size() - 1; i >= 0; i--) {
+            ReplayAction action = flat.get(i);
+            if (action.visibleStepIndex() != step) continue;
+            if (action.event() == null || !action.event().isDisplayed()) continue;
+            action.event().display(resolveLevel(level, action.event()));
+            return;
+        }
+    }
 }

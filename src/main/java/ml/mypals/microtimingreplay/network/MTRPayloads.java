@@ -367,6 +367,37 @@ public class MTRPayloads {
     }
 
     /**
+     * 时间轴上点某一行的方块高亮一下（不改变光标、不推进回放）。
+     *
+     * <p>服务端按 step 号找回那个事件，直接调 {@code MTREvent#display} 生成它的展示体——
+     * 下一次步进时会被正常的渲染流程清掉，所以它是"临时高亮"，不会污染回放状态。
+     */
+    public record HighlightC2S(int step) implements CustomPacketPayload {
+        public static final Type<HighlightC2S> TYPE = MTRPayloads.payloadType("highlight_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, HighlightC2S> CODEC = StreamCodec.of(
+                (buf, payload) -> buf.writeVarInt(payload.step()),
+                buf -> new HighlightC2S(buf.readVarInt()));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** 「回放 / 停止回放」——GUI 版，等价于 `/mtr replay start|stop <名字>`。 */
+    public record QuickReplayC2S(int action, String profile) implements CustomPacketPayload {
+        public static final int ACTION_START = 0;
+        public static final int ACTION_STOP = 1;
+
+        public static final Type<QuickReplayC2S> TYPE = MTRPayloads.payloadType("quick_replay_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, QuickReplayC2S> CODEC = StreamCodec.of(
+                (buf, payload) -> {
+                    buf.writeVarInt(payload.action());
+                    buf.writeUtf(payload.profile(), 128);
+                },
+                buf -> new QuickReplayC2S(buf.readVarInt(), buf.readUtf(128)));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /**
      * @param option true for the plain on/off replay switches, which only flip between
      *               {@link RecordMode#OFF} and {@link RecordMode#ALL}
      */

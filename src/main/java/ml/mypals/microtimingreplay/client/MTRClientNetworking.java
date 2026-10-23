@@ -76,6 +76,21 @@ public class MTRClientNetworking {
                 "", BlockPos.ZERO, BlockPos.ZERO));
     }
 
+    /** 时间轴点某行 → 让服务端把那个方块高亮一下。 */
+    public static void highlight(int step) {
+        send(new MTRPayloads.HighlightC2S(step));
+    }
+
+    /** GUI「回放」：等价 /mtr replay start <名字>。 */
+    public static void quickReplayStart(String profile) {
+        send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_START, profile));
+    }
+
+    /** GUI「停止回放」。 */
+    public static void quickReplayStop(String profile) {
+        send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_STOP, profile));
+    }
+
     public static void requestTimeline() {
         send(MTRPayloads.RequestTimelineC2S.INSTANCE);
     }

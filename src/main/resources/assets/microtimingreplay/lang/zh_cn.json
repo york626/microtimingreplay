@@ -342,5 +342,10 @@
     "mtr.quick.no_selection": "没有选区：先在 Litematica 里框一个区域",
     "mtr.hud.recording": "● 录制中 %s/%s 刻 · %s 事件",
     "mtr.hud.profile": "配置档：%s",
-    "mtr.panel.record_stop": "■ 停止记录 %s 刻"
+    "mtr.panel.record_stop": "■ 停止记录 %s 刻",
+    "mtr.panel.replay": "▶ 回放 %s",
+    "mtr.panel.replay_stop": "■ 停止回放",
+    "mtr.quick.replay": "▶ 回放这段",
+    "mtr.quick.replay_stop": "■ 停止回放",
+    "mtr.quick.no_profile": "还没有录过东西：先用「开始动态记录」录一段"
 }

@@ -608,6 +608,12 @@ public class TimelineScreen extends Screen {
                 graphics.drawString(this.font, Component.literal(collapsed.contains(rowIndex) ? "[+]" : "[-]"),
                         x, y + 1, MTRWidgets.TEXT_ACCENT);
             }
+            // 「这一 tick 里谁先动手」：只给叶子事件编号，阶段/队列/更新这些容器不编号
+            int ordinal = ordinalOf(rowIndex);
+            if (ordinal > 0) {
+                String tag = ordinal + ".";
+                graphics.drawString(this.font, tag, x + 18 - this.font.width(tag), y + 1, MTRWidgets.TEXT_ACCENT);
+            }
             graphics.drawString(this.font, row.label(), x + 20, y + 1, MTRWidgets.opaque(row.color()));
             graphics.disableScissor();
 
@@ -620,6 +626,34 @@ public class TimelineScreen extends Screen {
 
         measuredContentWidth = widest;
         if (hScroll > maxHScroll()) hScroll = maxHScroll();
+    }
+
+    /**
+     * 行号 → 「本 tick 内第几个真正改世界的事件」（1 起）。容器节点（kind==0）返回 0。
+     * 只在行总数变化时重算一次：同一场回放的 tick/kind 序列是固定的。
+     */
+    private int[] ordinals = new int[0];
+
+    private int ordinalOf(int rowIndex) {
+        List<MTRPayloads.TimelineRow> rows = rows();
+        if (ordinals.length != rows.size()) {
+            int[] computed = new int[rows.size()];
+            int count = 0;
+            long tick = Long.MIN_VALUE;
+            for (int i = 0; i < rows.size(); i++) {
+                MTRPayloads.TimelineRow r = rows.get(i);
+                if (r.tick() != tick) {
+                    tick = r.tick();
+                    count = 0;
+                }
+                if (r.kind() == 1) {
+                    count++;
+                    computed[i] = count;
+                }
+            }
+            ordinals = computed;
+        }
+        return rowIndex >= 0 && rowIndex < ordinals.length ? ordinals[rowIndex] : 0;
     }
 
     private int rowIndent(MTRPayloads.TimelineRow row) {
@@ -1006,6 +1040,10 @@ public class TimelineScreen extends Screen {
         }
 
         selectStep(row.step());
+        // 点一个"真正改世界"的行 ⇒ 让那个方块在世界里亮一下（不推进回放）
+        if (row.kind() == 1) {
+            MTRClientNetworking.highlight(row.step());
+        }
         if (isRowDoubleClick(mouseX, mouseY)) {
             MTRClientNetworking.jump(row.step());
         }
