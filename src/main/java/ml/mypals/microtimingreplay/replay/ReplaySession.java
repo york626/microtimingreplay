@@ -883,8 +883,7 @@ public class ReplaySession {
         notifyStateChanged();
         long t3 = System.nanoTime();
         mtrPerf("forward", t0, t1, t2, t3, taken);
-        if (taken > 0)
-            level.getServer().tickRateManager().stepGameIfPaused(2);
+                    // （原来这里会 stepGameIfPaused(2)：回放不该推进真实游戏刻，否则后退时世界在往前走、机器会真的转起来）
         return taken;
     }
 
@@ -941,8 +940,7 @@ public class ReplaySession {
 
         renderCurrentState(level, startCursor);
         notifyStateChanged();
-        if (taken > 0)
-            level.getServer().tickRateManager().stepGameIfPaused(2);
+                    // （原来这里会 stepGameIfPaused(2)：回放不该推进真实游戏刻，否则后退时世界在往前走、机器会真的转起来）
         return taken;
     }
 
@@ -993,7 +991,7 @@ public class ReplaySession {
 
         renderCurrentState(level, startCursor);
         notifyStateChanged();
-        level.getServer().tickRateManager().stepGameIfPaused(2);
+        // （原来这里会 stepGameIfPaused(2)：回放不该推进真实游戏刻，否则后退时世界在往前走、机器会真的转起来）
         
         return Math.abs(actionCursor - startCursor);
     }
@@ -1032,8 +1030,7 @@ public class ReplaySession {
 
         renderCurrentState(level, startCursor);
         notifyStateChanged();
-        if (takenActions > 0)
-            level.getServer().tickRateManager().stepGameIfPaused(2);
+                    // （原来这里会 stepGameIfPaused(2)：回放不该推进真实游戏刻，否则后退时世界在往前走、机器会真的转起来）
         return crossed;
     }
 
@@ -1077,8 +1074,7 @@ public class ReplaySession {
 
         renderCurrentState(level, startCursor);
         notifyStateChanged();
-        if (takenActions > 0)
-            level.getServer().tickRateManager().stepGameIfPaused(2);
+                    // （原来这里会 stepGameIfPaused(2)：回放不该推进真实游戏刻，否则后退时世界在往前走、机器会真的转起来）
         return crossed;
     }
 
