@@ -58,6 +58,7 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.ListProfilesC2S.TYPE, MTRPayloads.ListProfilesC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.DeleteProfileC2S.TYPE, MTRPayloads.DeleteProfileC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.ClearMarkersC2S.TYPE, MTRPayloads.ClearMarkersC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.SetReplayPrefsC2S.TYPE, MTRPayloads.SetReplayPrefsC2S.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.ProfileListS2C.TYPE, MTRPayloads.ProfileListS2C.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
@@ -85,6 +86,12 @@ public class MTRNetworking {
         // 回放选择页：要一份可回放的录制列表（按文件改动时间倒序，最多 40 条）
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.ListProfilesC2S.TYPE, (payload, context) ->
                 sendProfileList(context.player()));
+
+        // 回放期偏好：跳过掉落物实体
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.SetReplayPrefsC2S.TYPE, (payload, context) -> {
+            if (!isAllowed(context.player())) return;
+            ml.mypals.microtimingreplay.replay.ReplayPrefs.setSkipItemEntities(payload.skipItemEntities());
+        });
 
         // 一键清理世界里残留的标记展示体（所有维度、不分会话）
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.ClearMarkersC2S.TYPE, (payload, context) -> {
@@ -146,6 +153,13 @@ public class MTRNetworking {
                 ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(false, name, 0, 0, 5000,
                         ReplayManager.isRunning(name) ? "这个配置档已经在回放中：" + name : "正在录制中，先停止录制"));
                 return;
+            }
+            // 他想边逐步边看，所以默认先把时间冻上（等价 /tick freeze），省一步
+            net.minecraft.server.ServerTickRateManager tickRate = player.server.tickRateManager();
+            if (!tickRate.isFrozen()) {
+                tickRate.setFrozen(true);
+                player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("已自动冻结时间（/tick unfreeze 恢复）"), true);
             }
             // 准备阶段要读档 + 备份区域世界，大区域会顿一下；先告诉玩家不是卡死
             player.displayClientMessage(

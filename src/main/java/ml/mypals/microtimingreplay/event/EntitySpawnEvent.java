@@ -102,6 +102,13 @@ public class EntitySpawnEvent extends Vec3PosEvent {
 
         boolean shouldSpawn = forward != despawn;
 
+        // 回放时不重建掉落物（活塞/机器掉出来的物品），否则会堆一地；可在设置里关掉这个行为
+        if (shouldSpawn
+                && ml.mypals.microtimingreplay.replay.ReplayPrefs.skipItemEntities()
+                && entityType != null && entityType.equals("minecraft:item")) {
+            return;
+        }
+
         if (shouldSpawn) {
             if (EntityReplayManager.getEntity(level, uuid) == null) {
                 EntityReplayManager.spawnStandIn(level, uuid, nbt, getX(), getY(), getZ(), yaw, pitch);

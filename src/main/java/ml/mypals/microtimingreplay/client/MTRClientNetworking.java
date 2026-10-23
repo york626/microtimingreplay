@@ -89,6 +89,11 @@ public class MTRClientNetworking {
         send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_START, profile));
     }
 
+    /** 回放期偏好：是否跳过掉落物实体。 */
+    public static void sendReplayPrefs(boolean skipItemEntities) {
+        send(new MTRPayloads.SetReplayPrefsC2S(skipItemEntities));
+    }
+
     /** 清理世界里的标记展示体。 */
     public static void clearMarkers() {
         send(MTRPayloads.ClearMarkersC2S.INSTANCE);

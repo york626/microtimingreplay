@@ -35,6 +35,7 @@ public class MTRClient implements ClientModInitializer {
             if (!MTRClientConfig.scoreboardVisible()) {
                 MTRClientNetworking.sendScoreboardPref(false);
             }
+            MTRClientNetworking.sendReplayPrefs(MTRClientConfig.skipReplayItems());
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             ClientReplayState.reset();

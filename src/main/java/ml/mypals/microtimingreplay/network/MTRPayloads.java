@@ -381,6 +381,16 @@ public class MTRPayloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 回放期偏好：是否跳过掉落物实体（设置页那个开关）。 */
+    public record SetReplayPrefsC2S(boolean skipItemEntities) implements CustomPacketPayload {
+        public static final Type<SetReplayPrefsC2S> TYPE = MTRPayloads.payloadType("set_replay_prefs_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, SetReplayPrefsC2S> CODEC = StreamCodec.of(
+                (buf, payload) -> buf.writeBoolean(payload.skipItemEntities()),
+                buf -> new SetReplayPrefsC2S(buf.readBoolean()));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** 把世界里残留的标记展示体清干净（设置页那个「清理标记」按钮）。 */
     public record ClearMarkersC2S() implements CustomPacketPayload {
         public static final ClearMarkersC2S INSTANCE = new ClearMarkersC2S();

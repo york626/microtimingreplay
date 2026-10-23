@@ -35,6 +35,7 @@ public class ClientConfigScreen extends Screen {
     private Button ctrlScrollButton;
     private Button scoreboardButton;
     private Button clearMarkersButton;
+    private Button skipItemsButton;
 
     /** 所有行（按钮 + 标签）+ 基准 y，滚动时只挪按钮，标签跟着 button.getY() 走。 */
     private record Row(Button button, int baseY) {}
@@ -110,6 +111,13 @@ public class ClientConfigScreen extends Screen {
         clearMarkersButton = row(x, y,
                 MTRComponent.translatable("mtr.config.clear_markers", "清理"),
                 b -> MTRClientNetworking.clearMarkers());
+        y += ROW_HEIGHT;
+
+        skipItemsButton = row(x, y, skipItemsLabel(), b -> {
+            MTRClientConfig.setSkipReplayItems(!MTRClientConfig.skipReplayItems());
+            MTRClientNetworking.sendReplayPrefs(MTRClientConfig.skipReplayItems());
+            b.setMessage(skipItemsLabel());
+        });
 
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
                 b -> onClose()).bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
@@ -184,6 +192,11 @@ public class ClientConfigScreen extends Screen {
                 MTRClientConfig.ctrlScrollStep() ? "On" : "Off");
     }
 
+    private Component skipItemsLabel() {
+        return MTRComponent.translatable(MTRClientConfig.skipReplayItems() ? "mtr.config.on" : "mtr.config.off",
+                MTRClientConfig.skipReplayItems() ? "On" : "Off");
+    }
+
     private Component scoreboardLabel() {
         return MTRComponent.translatable(MTRClientConfig.scoreboardVisible() ? "mtr.config.on" : "mtr.config.off",
                 MTRClientConfig.scoreboardVisible() ? "On" : "Off");
@@ -219,6 +232,8 @@ public class ClientConfigScreen extends Screen {
                 MTRComponent.translatable("mtr.config.scoreboard", "Timeline sidebar"));
         label(graphics, clearMarkersButton,
                 MTRComponent.translatable("mtr.config.clear_markers_label", "Clear leftover markers"));
+        label(graphics, skipItemsButton,
+                MTRComponent.translatable("mtr.config.skip_items", "回放不生成掉落物"));
 
         if (!ClientReplayState.serverHasMod()) {
             graphics.drawString(this.font, MTRComponent.translatable("mtr.config.vanilla_server",

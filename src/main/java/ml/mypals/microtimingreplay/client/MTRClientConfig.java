@@ -38,6 +38,8 @@ public class MTRClientConfig {
     private static boolean ctrlScrollStep = true;
     /** 时间轴侧栏（记分板）要不要显示 —— 由服务端代为关闭，纯显示偏好。 */
     private static boolean scoreboardVisible = true;
+    /** 回放时不要重建掉落物实体（活塞往下掉的那种）。 */
+    private static boolean skipReplayItems = true;
 
     private static File configFile() {
         return new File(new File(FabricLoader.getInstance().getConfigDir().toFile(), "mtr"), "client.json");
@@ -121,6 +123,15 @@ public class MTRClientConfig {
         return scoreboardVisible;
     }
 
+    public static boolean skipReplayItems() {
+        return skipReplayItems;
+    }
+
+    public static void setSkipReplayItems(boolean value) {
+        skipReplayItems = value;
+        save();
+    }
+
     public static void setScoreboardVisible(boolean value) {
         scoreboardVisible = value;
         save();
@@ -156,6 +167,7 @@ public class MTRClientConfig {
             if (json.has("hideMarkers")) hideMarkers = json.get("hideMarkers").getAsBoolean();
             if (json.has("ctrlScrollStep")) ctrlScrollStep = json.get("ctrlScrollStep").getAsBoolean();
             if (json.has("scoreboardVisible")) scoreboardVisible = json.get("scoreboardVisible").getAsBoolean();
+            if (json.has("skipReplayItems")) skipReplayItems = json.get("skipReplayItems").getAsBoolean();
         } catch (Exception e) {
             MicroTimingReplay.LOGGER.error("Failed to read client.json, falling back to defaults", e);
         }
@@ -172,6 +184,7 @@ public class MTRClientConfig {
         root.addProperty("hideMarkers", hideMarkers);
         root.addProperty("ctrlScrollStep", ctrlScrollStep);
         root.addProperty("scoreboardVisible", scoreboardVisible);
+        root.addProperty("skipReplayItems", skipReplayItems);
 
         try {
             if (!file.getParentFile().exists()) {
