@@ -89,6 +89,9 @@ public class MTRPanelScreen extends Screen {
     private List<Card> buildCards() {
         List<Card> cards = new ArrayList<>();
 
+        // 最近一份录制的名字：下面几个分支都要用，先取出来
+        String lastProfile = QuickRecordState.profile();
+
         // 录制中：面板上直接给「停止记录」，不用再进界面；否则给「动态记录」入口
         if (QuickRecordState.isRecording()) {
             cards.add(new Card(
@@ -97,18 +100,18 @@ public class MTRPanelScreen extends Screen {
         } else {
             cards.add(new Card(MTRComponent.translatable("mtr.panel.quick", "动态记录"), 0, 0, 72, false,
                     () -> this.minecraft.setScreen(new QuickRecordScreen(this)), null));
-            // 录过东西就把「回放」摆在旁边，一步进时间轴
-            String lastProfile = QuickRecordState.profile();
-            String shown = lastProfile.length() > 12 ? lastProfile.substring(0, 11) + "…" : lastProfile;
+            // 录过东西就把「回放」摆在旁边
             if (!lastProfile.isEmpty()) {
+                // 有录制时下面按「正在回放 / 可回放」二选一；没录制过也会在 else 后补一张"回放…"卡
                 if (ClientReplayState.runningSessions().contains(lastProfile)) {
                     cards.add(new Card(
                             MTRComponent.translatable("mtr.panel.replay_stop", "■ 停止回放"), 0, 0, 88, false,
                             () -> MTRClientNetworking.quickReplayStop(lastProfile), null));
                 } else {
+                    // 点开列表，自己挑一个回放（Ray 2026-10-23：点哪个就回放哪个）
                     cards.add(new Card(
-                            MTRComponent.translatable("mtr.panel.replay", "▶ 回放 %s", shown), 0, 0, 104, false,
-                            () -> MTRClientNetworking.quickReplayStart(lastProfile), null));
+                            MTRComponent.translatable("mtr.panel.replay_pick", "▶ 回放…"), 0, 0, 88, false,
+                            () -> this.minecraft.setScreen(new ReplayPickerScreen(this)), null));
                 }
             }
         }
@@ -134,6 +137,10 @@ public class MTRPanelScreen extends Screen {
                 cards.add(new Card(
                         MTRComponent.translatable("mtr.panel.watch", "Watch: %s", profile), 0, 0, 96, false,
                         () -> MTRClientNetworking.subscribe(profile), null));
+            }
+            if (lastProfile.isEmpty()) {
+                cards.add(new Card(MTRComponent.translatable("mtr.panel.replay_pick", "▶ 回放…"), 0, 0, 88, false,
+                        () -> this.minecraft.setScreen(new ReplayPickerScreen(this)), null));
             }
             cards.add(new Card(MTRComponent.translatable("mtr.panel.filter", "Filter"), 0, 0, 56, false,
                     () -> this.minecraft.setScreen(new FilterScreen(null)), null));
@@ -209,9 +216,6 @@ public class MTRPanelScreen extends Screen {
             MTRWidgets.card(graphics, this.font, card.label(), card.x(), card.y(), card.width(), CARD_HEIGHT,
                     hovered, card.active());
         }
-
-        graphics.drawCenteredString(this.font, hintLine(), panelX + PANEL_WIDTH / 2,
-                panelY + panelHeight - 13, MTRWidgets.TEXT_DIM);
 
         super.render(graphics, mouseX, mouseY, partialTick);
     }

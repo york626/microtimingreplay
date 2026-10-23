@@ -353,5 +353,13 @@
     "mtr.config.step_forward": "Step forward (click to bind)",
     "mtr.config.step_backward": "Step backward (click to bind)",
     "mtr.config.ctrl_scroll": "Ctrl + scroll wheel = step",
-    "mtr.config.scoreboard": "Timeline sidebar"
+    "mtr.config.scoreboard": "Timeline sidebar",
+    "mtr.panel.replay_pick": "▶ Replay…",
+    "mtr.picker.title": "Replay (pick one)",
+    "mtr.picker.close": "Close",
+    "mtr.picker.play": "▶ Replay",
+    "mtr.picker.playing": "Playing · click to stop",
+    "mtr.picker.empty": "Nothing recorded yet",
+    "mtr.picker.detail": "%s ticks · %s events",
+    "mtr.picker.scroll": "scroll  %s/%s"
 }

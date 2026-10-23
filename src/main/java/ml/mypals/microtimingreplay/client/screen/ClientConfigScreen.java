@@ -10,6 +10,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -33,6 +34,11 @@ public class ClientConfigScreen extends Screen {
     private Button watchButton;
     private Button ctrlScrollButton;
     private Button scoreboardButton;
+
+    /** 所有行（按钮 + 标签）+ 基准 y，滚动时只挪按钮，标签跟着 button.getY() 走。 */
+    private record Row(Button button, int baseY) {}
+    private final List<Row> rows = new ArrayList<>();
+    private int scroll;
 
     /** Presets for the hold threshold; 0 means the panel appears the instant the key goes down. */
     private static final List<Integer> HOLD_DELAYS = List.of(0, 150, 250, 400, 600);
@@ -101,11 +107,36 @@ public class ClientConfigScreen extends Screen {
 
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
                 b -> onClose()).bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
+
+        applyScroll();
+    }
+
+    private int maxScroll() {
+        if (rows.isEmpty()) return 0;
+        int contentBottom = rows.getLast().baseY() + 20;
+        int visibleBottom = this.height - 44;   // 留出「完成」按钮
+        return Math.max(0, contentBottom - visibleBottom);
+    }
+
+    private void applyScroll() {
+        scroll = Math.clamp(scroll, 0, maxScroll());
+        for (Row row : rows) {
+            row.button().setY(row.baseY() - scroll);
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (maxScroll() <= 0) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        scroll -= (int) Math.round(scrollY * ROW_HEIGHT);
+        applyScroll();
+        return true;
     }
 
     private Button row(int x, int y, Component label, Button.OnPress onPress) {
         Button button = Button.builder(label, onPress).bounds(x, y, CONTROL_WIDTH, 20).build();
         addRenderableWidget(button);
+        rows.add(new Row(button, y));
         return button;
     }
 
@@ -180,11 +211,6 @@ public class ClientConfigScreen extends Screen {
                 MTRComponent.translatable("mtr.config.ctrl_scroll", "Ctrl + scroll wheel = step"));
         label(graphics, scoreboardButton,
                 MTRComponent.translatable("mtr.config.scoreboard", "Timeline sidebar"));
-
-        graphics.drawString(this.font, MTRComponent.translatable("mtr.config.keybind",
-                        "Hold %s for the hotbar panel — rebind it in Controls",
-                        MTRKeys.panel.getTranslatedKeyMessage().getString()),
-                LABEL_X, this.height - 52, MTRWidgets.TEXT_DIM);
 
         if (!ClientReplayState.serverHasMod()) {
             graphics.drawString(this.font, MTRComponent.translatable("mtr.config.vanilla_server",

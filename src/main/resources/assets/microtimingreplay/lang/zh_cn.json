@@ -353,5 +353,13 @@
     "mtr.config.step_forward": "前进一小步（点此处去设置）",
     "mtr.config.step_backward": "后退一小步（点此处去设置）",
     "mtr.config.ctrl_scroll": "Ctrl + 滚轮 前进/后退",
-    "mtr.config.scoreboard": "时间轴侧栏（记分板）"
+    "mtr.config.scoreboard": "时间轴侧栏（记分板）",
+    "mtr.panel.replay_pick": "▶ 回放…",
+    "mtr.picker.title": "回放（选一段）",
+    "mtr.picker.close": "关闭",
+    "mtr.picker.play": "▶ 回放",
+    "mtr.picker.playing": "正在回放 · 点此停止",
+    "mtr.picker.empty": "还没有录制：先用「动态记录」录一段",
+    "mtr.picker.detail": "%s 刻 · %s 事件",
+    "mtr.picker.scroll": "滚轮翻页  %s/%s"
 }

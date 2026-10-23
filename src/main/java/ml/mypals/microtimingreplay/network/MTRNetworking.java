@@ -55,6 +55,8 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.HighlightC2S.TYPE, MTRPayloads.HighlightC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickReplayC2S.TYPE, MTRPayloads.QuickReplayC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.SetScoreboardC2S.TYPE, MTRPayloads.SetScoreboardC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.ListProfilesC2S.TYPE, MTRPayloads.ListProfilesC2S.CODEC);
+        PayloadTypeRegistry.playS2C().register(MTRPayloads.ProfileListS2C.TYPE, MTRPayloads.ProfileListS2C.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.SessionsS2C.TYPE, MTRPayloads.SessionsS2C.CODEC);
@@ -77,6 +79,10 @@ public class MTRNetworking {
             ml.mypals.microtimingreplay.replay.scoreboard.ScoreboardPrefs.forget(handler.getPlayer());
             MTRClientTracker.forget(handler.getPlayer());
         });
+
+        // 回放选择页：要一份可回放的录制列表（按文件改动时间倒序，最多 40 条）
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.ListProfilesC2S.TYPE, (payload, context) ->
+                sendProfileList(context.player()));
 
         // 时间轴侧栏 显示/隐藏
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.SetScoreboardC2S.TYPE, (payload, context) ->
@@ -248,6 +254,29 @@ public class MTRNetworking {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             sendSessions(player);
         }
+    }
+
+    private static void sendProfileList(ServerPlayer player) {
+        if (player == null || !isAllowed(player)) return;
+
+        List<String> names = new ArrayList<>(ProfileManager.listProfiles());
+        names.sort((a, b) -> Long.compare(
+                ml.mypals.microtimingreplay.profile.WorldScopedStorage.getProfileFile(b).lastModified(),
+                ml.mypals.microtimingreplay.profile.WorldScopedStorage.getProfileFile(a).lastModified()));
+
+        List<MTRPayloads.ProfileEntry> entries = new ArrayList<>();
+        int limit = Math.min(names.size(), 40);
+        for (int i = 0; i < limit; i++) {
+            String name = names.get(i);
+            MTRProfile profile = ProfileManager.loadProfile(name);
+            if (profile == null) continue;
+            int events = 0;
+            for (ml.mypals.microtimingreplay.profile.TickFrame frame : profile.getFrames()) {
+                events += frame.getEvents().size();
+            }
+            entries.add(new MTRPayloads.ProfileEntry(name, profile.getTicksRecorded(), events));
+        }
+        ServerPlayNetworking.send(player, new MTRPayloads.ProfileListS2C(entries));
     }
 
     public static void sendTimeline(ServerPlayer player) {

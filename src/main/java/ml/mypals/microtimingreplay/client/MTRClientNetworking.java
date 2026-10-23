@@ -34,6 +34,9 @@ public class MTRClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(MTRPayloads.FilterS2C.TYPE, (payload, context) ->
                 ClientReplayState.onFilter(payload.rows()));
 
+        ClientPlayNetworking.registerGlobalReceiver(MTRPayloads.ProfileListS2C.TYPE, (payload, context) ->
+                ClientProfileList.set(payload.entries()));
+
         ClientPlayNetworking.registerGlobalReceiver(MTRPayloads.QuickRecordStateS2C.TYPE, (payload, context) ->
                 QuickRecordState.update(payload.recording(), payload.profile(), payload.ticks(),
                         payload.events(), payload.limit(), payload.message()));
@@ -84,6 +87,11 @@ public class MTRClientNetworking {
     /** GUI「回放」：等价 /mtr replay start <名字>。 */
     public static void quickReplayStart(String profile) {
         send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_START, profile));
+    }
+
+    /** 要一份可回放的录制列表。 */
+    public static void requestProfiles() {
+        send(MTRPayloads.ListProfilesC2S.INSTANCE);
     }
 
     /** 告诉服务端要不要显示时间轴侧栏（记分板）。 */

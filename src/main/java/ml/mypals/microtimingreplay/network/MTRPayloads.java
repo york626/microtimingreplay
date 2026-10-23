@@ -381,6 +381,43 @@ public class MTRPayloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 要一份「可回放的录制列表」（回放选择页用）。 */
+    public record ListProfilesC2S() implements CustomPacketPayload {
+        public static final ListProfilesC2S INSTANCE = new ListProfilesC2S();
+        public static final Type<ListProfilesC2S> TYPE = MTRPayloads.payloadType("list_profiles_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ListProfilesC2S> CODEC =
+                StreamCodec.unit(INSTANCE);
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** 一条录制：名字 + 刻数 + 事件数（列表里给人看的）。 */
+    public record ProfileEntry(String name, int ticks, int events) {
+    }
+
+    public record ProfileListS2C(List<ProfileEntry> entries) implements CustomPacketPayload {
+        public static final Type<ProfileListS2C> TYPE = MTRPayloads.payloadType("profile_list_s2c");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ProfileListS2C> CODEC = StreamCodec.of(
+                (buf, payload) -> {
+                    buf.writeVarInt(payload.entries().size());
+                    for (ProfileEntry e : payload.entries()) {
+                        buf.writeUtf(e.name(), 128);
+                        buf.writeVarInt(e.ticks());
+                        buf.writeVarInt(e.events());
+                    }
+                },
+                buf -> {
+                    int count = buf.readVarInt();
+                    List<ProfileEntry> out = new ArrayList<>(count);
+                    for (int i = 0; i < count; i++) {
+                        out.add(new ProfileEntry(buf.readUtf(128), buf.readVarInt(), buf.readVarInt()));
+                    }
+                    return new ProfileListS2C(out);
+                });
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** 时间轴侧栏（记分板）显示/隐藏——纯客户端偏好，服务端照办。 */
     public record SetScoreboardC2S(boolean visible) implements CustomPacketPayload {
         public static final Type<SetScoreboardC2S> TYPE = MTRPayloads.payloadType("set_scoreboard_c2s");
