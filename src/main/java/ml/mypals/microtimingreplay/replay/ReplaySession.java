@@ -67,6 +67,18 @@ public class ReplaySession {
 
     private final List<ReplayAction> flatActions = new ArrayList<>();
     private int actionCursor = 0;
+
+    /**
+     * 增量维护的「当前打开的作用域栈」：光标前进时只压/弹增量，不必每步从 0 扫到 cursor。
+     * （74k 个动作的录制里，每步都重扫一遍就是肉眼可见的卡顿。）
+     */
+    private final List<MTREvent> openStack = new ArrayList<>();
+    private int openStackCursor = 0;
+
+    /** 每个 tick 帧内 event → step 的映射；首次用到时整表算一次，之后每步直接查。 */
+    private Map<TickFrame, Map<MTREvent, Integer>> stepMaps;
+    /** 录制里有没有活塞事件（没有就跳过一遍全表扫描）。 */
+    private Boolean hasPistonActions;
     private long totalTick = 0;
     private long currentVirtualTick = 0;
     private boolean isEmpty = false;
@@ -374,19 +386,62 @@ public class ReplaySession {
         if (currentFrame == null)
             return;
 
-        Map<MTREvent, Integer> stepMap = new HashMap<>();
-        for (ReplayAction action : flatActions) {
-            if (action.frame() == currentFrame) {
-                if (action.type() != ActionType.EXIT) {
-                    stepMap.put(action.event(), action.visibleStepIndex());
-                }
-            }
-        }
+        Map<MTREvent, Integer> stepMap = stepMapFor(currentFrame);
 
         List<TimelineGenerator.ScoreLine> lines = TimelineGenerator.generateTimeline(currentFrame, currentAction, stepMap);
         for (ServerPlayer player : onlineSubscribers()) {
             VirtualScoreboardManager.updateLines(player, lines);
         }
+    }
+
+    /** 光标 cursor 处打开着的作用域栈（增量推进；回退时才从头重建）。 */
+    private List<MTREvent> openStackAt(int cursor) {
+        int target = Math.min(cursor, flatActions.size());
+        if (target < openStackCursor) {
+            openStack.clear();
+            openStackCursor = 0;
+        }
+        while (openStackCursor < target) {
+            ReplayAction a = flatActions.get(openStackCursor);
+            if (a.type == ActionType.ENTER) {
+                openStack.add(a.event);
+            } else if (a.type == ActionType.EXIT) {
+                openStack.remove(a.event);
+            }
+            openStackCursor++;
+        }
+        return openStack;
+    }
+
+    /** 这一帧里 event → 可见步号。整表只算一次（每个帧一小份），避免每步重新全扫。 */
+    private Map<MTREvent, Integer> stepMapFor(TickFrame frame) {
+        if (stepMaps == null) {
+            stepMaps = new java.util.IdentityHashMap<>();
+        }
+        Map<MTREvent, Integer> cached = stepMaps.get(frame);
+        if (cached != null) return cached;
+        Map<MTREvent, Integer> built = new HashMap<>();
+        for (ReplayAction action : flatActions) {
+            if (action.frame() == frame && action.type() != ActionType.EXIT) {
+                built.put(action.event(), action.visibleStepIndex());
+            }
+        }
+        stepMaps.put(frame, built);
+        return built;
+    }
+
+    private boolean hasPistonActions() {
+        if (hasPistonActions == null) {
+            boolean found = false;
+            for (ReplayAction a : flatActions) {
+                if (a.event instanceof MovingPistonEvent || a.event instanceof MovingPistonTickEvent) {
+                    found = true;
+                    break;
+                }
+            }
+            hasPistonActions = found;
+        }
+        return hasPistonActions;
     }
 
     private void updateBossBar() {
@@ -405,15 +460,7 @@ public class ReplaySession {
             return;
         }
 
-        List<MTREvent> activeStack = new ArrayList<>();
-        for (int i = 0; i < actionCursor; i++) {
-            ReplayAction a = flatActions.get(i);
-            if (a.type == ActionType.ENTER)
-                activeStack.add(a.event);
-            else if (a.type == ActionType.EXIT)
-                activeStack.remove(a.event);
-        }
-
+        List<MTREvent> activeStack = openStackAt(actionCursor);
         MTREvent nearestParent = activeStack.isEmpty() ? null : activeStack.getLast();
         BossEvent.BossBarColor color = BossEvent.BossBarColor.BLUE;
         MutableComponent extraDesc = Component.literal("");
@@ -454,25 +501,21 @@ public class ReplaySession {
         PistonDisplayManager.beginRenderPistons();
 
         int maxLen = Math.min(actionCursor, flatActions.size());
-        for (int i = 0; i < maxLen; i++) {
-            ReplayAction a = flatActions.get(i);
-            if (a.type != ActionType.LEAF) continue;
-            if (!a.event.isDisplayed()) continue;
-            if (a.event instanceof MovingPistonEvent mpe) {
-                mpe.display(resolveLevel(level, mpe));
-            } else if (a.event instanceof MovingPistonTickEvent mpte) {
-                mpte.display(resolveLevel(level, mpte));
+        if (hasPistonActions()) {
+            for (int i = 0; i < maxLen; i++) {
+                ReplayAction a = flatActions.get(i);
+                if (a.type != ActionType.LEAF) continue;
+                if (!a.event.isDisplayed()) continue;
+                if (a.event instanceof MovingPistonEvent mpe) {
+                    mpe.display(resolveLevel(level, mpe));
+                } else if (a.event instanceof MovingPistonTickEvent mpte) {
+                    mpte.display(resolveLevel(level, mpte));
+                }
             }
         }
 
-        List<MTREvent> activeStack = new ArrayList<>();
-        for (int i = 0; i < maxLen; i++) {
-            ReplayAction a = flatActions.get(i);
-            if (a.type == ActionType.ENTER)
-                activeStack.add(a.event);
-            else if (a.type == ActionType.EXIT)
-                activeStack.remove(a.event);
-        }
+        // 复用增量维护的栈（只读，别在下面改它）
+        List<MTREvent> activeStack = openStackAt(maxLen);
 
         Set<BlockPos> innerOccupied = new HashSet<>();
         Map<BlockPos, Integer> pillarCounts = new HashMap<>();

@@ -95,6 +95,7 @@ public class MTRPanelScreen extends Screen {
                     () -> this.minecraft.setScreen(new QuickRecordScreen(this)), null));
             // 录过东西就把「回放」摆在旁边，一步进时间轴
             String lastProfile = QuickRecordState.profile();
+            String shown = lastProfile.length() > 12 ? lastProfile.substring(0, 11) + "…" : lastProfile;
             if (!lastProfile.isEmpty()) {
                 if (ClientReplayState.runningSessions().contains(lastProfile)) {
                     cards.add(new Card(
@@ -102,7 +103,7 @@ public class MTRPanelScreen extends Screen {
                             () -> MTRClientNetworking.quickReplayStop(lastProfile), null));
                 } else {
                     cards.add(new Card(
-                            MTRComponent.translatable("mtr.panel.replay", "▶ 回放 %s", lastProfile), 0, 0, 104, false,
+                            MTRComponent.translatable("mtr.panel.replay", "▶ 回放 %s", shown), 0, 0, 104, false,
                             () -> MTRClientNetworking.quickReplayStart(lastProfile), null));
                 }
             }

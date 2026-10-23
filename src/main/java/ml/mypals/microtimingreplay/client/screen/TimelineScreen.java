@@ -441,6 +441,19 @@ public class TimelineScreen extends Screen {
         return best;
     }
 
+    /**
+     * 跟随光标走时用的「静默选中」：只移动高亮与滚动位置，**不向服务端要调用栈**。
+     * 一步一个 DetailsS2C（整条 Java 栈）在 7 万步的录制里就是一步一顿的主因；
+     * 想看栈就点那一行（走 {@link #selectStep(int)}），按需再拉。
+     */
+    private void selectStepQuiet(int step) {
+        if (step < 0 || step == selectedStep) return;
+        selectedStep = step;
+        summaryScroll = 0;
+        detailScroll = 0;
+        detailHScroll = 0;
+    }
+
     private void selectStep(int step) {
         if (step < 0 || step == selectedStep) return;
 
@@ -471,7 +484,7 @@ public class TimelineScreen extends Screen {
             lastCursorRow = cursorRow;
             // Stepping should carry the detail column along with it; that is the point
             // of stepping. A manual pick only survives until the replay moves again.
-            selectStep(ClientReplayState.currentStep());
+            selectStepQuiet(ClientReplayState.currentStep());
             if (MTRClientConfig.followCursor()) {
                 scrollTo(cursorRow);
             }

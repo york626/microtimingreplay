@@ -62,7 +62,10 @@ public final class QuickRecordService {
             return State.idle("选区太大（" + volume + " 格，上限 " + MAX_VOLUME + "）");
         }
 
-        String name = sanitizeName(rawName);
+        // 名字不用选区名（选区常叫「———72W———」这种，显示又长又丑）⇒ 自动编号 rec1、rec2…
+        // 选区名只保留成「区域名」，需要时还能认出来。
+        String name = nextProfileName();
+        String areaName = sanitizeName(rawName);
         String dimension = player.serverLevel().dimension().location().toString();
         MinecraftServer server = player.serverLevel().getServer();
         if (server == null) {
@@ -79,7 +82,10 @@ public final class QuickRecordService {
         if (profile == null) {
             return State.idle("创建配置档失败：" + name);
         }
-        profile.addArea("选区", a, b, dimension);
+        if (areaName.length() > 24) {
+            areaName = areaName.substring(0, 24);
+        }
+        profile.addArea(areaName.isBlank() ? "选区" : areaName, a, b, dimension);
         ProfileManager.saveProfile(profile);
 
         if (!MTRState.startRecording(name, server, MAX_TICKS)) {
@@ -204,6 +210,18 @@ public final class QuickRecordService {
         return (long) (Math.abs(a.getX() - b.getX()) + 1)
                 * (Math.abs(a.getY() - b.getY()) + 1)
                 * (Math.abs(a.getZ() - b.getZ()) + 1);
+    }
+
+    /** 下一份可用的自动编号名：rec1 / rec2 / …（跳过已存在的）。 */
+    private static String nextProfileName() {
+        java.util.Set<String> used = new java.util.HashSet<>(ProfileManager.listProfiles());
+        for (int i = 1; i < 100000; i++) {
+            String candidate = "rec" + i;
+            if (!used.contains(candidate)) {
+                return candidate;
+            }
+        }
+        return "rec" + (System.currentTimeMillis() % 100000);
     }
 
     /** 配置档名只允许 {@code A-Z a-z 0-9 _ . + -}（和 /mtr profile create 的规则一致）。 */
