@@ -79,6 +79,16 @@ public class ReplaySession {
     private Map<TickFrame, Map<MTREvent, Integer>> stepMaps;
     /** 录制里有没有活塞事件（没有就跳过一遍全表扫描）。 */
     private Boolean hasPistonActions;
+    /** 过滤器一改，isDisplayed() 结果就变了 ⇒ 用它让行号前缀表失效重建。 */
+    private int displayedRevision = 0;
+
+    /** 过滤器变更后调用（客户端改过滤会走到这里）。 */
+    public void invalidateDisplayedCache() {
+        displayedRevision++;
+        rowPrefix = null;
+        stepMaps = null;
+        hasPistonActions = null;
+    }
     private long totalTick = 0;
     private long currentVirtualTick = 0;
     private boolean isEmpty = false;
@@ -231,22 +241,37 @@ public class ReplaySession {
      * six figures long in a real recording.
      */
     public RowCursor rowCursor() {
+        ensureRowPrefix();
         int bounded = Math.clamp(actionCursor, 0, flatActions.size());
-        int beforeCursor = 0;
-        int total = 0;
+        // prefix[i] = 前 i 个动作里"会产生行"的个数（跳过 EXIT 与被过滤的事件）
+        return new RowCursor(rowPrefix[bounded] - 1, rowPrefix[flatActions.size()]);
+    }
 
-        for (int i = 0; i < flatActions.size(); i++) {
-            ReplayAction action = flatActions.get(i);
-            // EXITs are bookkeeping, and a NO_DISPLAY event produces no row, so neither may be counted.
-            if (action.type() == ActionType.EXIT) continue;
-            if (!action.event().isDisplayed()) continue;
-            total++;
-            if (i < bounded) beforeCursor++;
+    /**
+     * 行号前缀表：一次性按 109k 动作算好，之后每步 O(1)。
+     * 原先每步都重扫一遍并逐个 {@code isDisplayed()}（里面有 map 查询），一步就要几百毫秒。
+     */
+    private int[] rowPrefix;
+    private int rowPrefixRevision = -1;
+
+    private void ensureRowPrefix() {
+        int n = flatActions.size();
+        int revision = displayedRevision;
+        if (rowPrefix != null && rowPrefix.length == n + 1 && rowPrefixRevision == revision) {
+            return;
         }
-
-        // Landing on a scope's EXIT counts as still being on the row that opened it,
-        // which is exactly what "the last row before the cursor" gives us.
-        return new RowCursor(beforeCursor - 1, total);
+        int[] prefix = new int[n + 1];
+        int count = 0;
+        for (int i = 0; i < n; i++) {
+            prefix[i] = count;
+            ReplayAction action = flatActions.get(i);
+            if (action.type == ActionType.EXIT) continue;
+            if (!action.event.isDisplayed()) continue;
+            count++;
+        }
+        prefix[n] = count;
+        rowPrefix = prefix;
+        rowPrefixRevision = revision;
     }
 
     public long getCurrentVirtualTick() {
@@ -416,18 +441,16 @@ public class ReplaySession {
     /** 这一帧里 event → 可见步号。整表只算一次（每个帧一小份），避免每步重新全扫。 */
     private Map<MTREvent, Integer> stepMapFor(TickFrame frame) {
         if (stepMaps == null) {
-            stepMaps = new java.util.IdentityHashMap<>();
-        }
-        Map<MTREvent, Integer> cached = stepMaps.get(frame);
-        if (cached != null) return cached;
-        Map<MTREvent, Integer> built = new HashMap<>();
-        for (ReplayAction action : flatActions) {
-            if (action.frame() == frame && action.type() != ActionType.EXIT) {
-                built.put(action.event(), action.visibleStepIndex());
+            // 一次走完 109k 建「帧 → (事件 → 步号)」，而不是每进一个新 tick 就重扫一遍
+            Map<TickFrame, Map<MTREvent, Integer>> all = new java.util.IdentityHashMap<>();
+            for (ReplayAction action : flatActions) {
+                if (action.type == ActionType.EXIT) continue;
+                all.computeIfAbsent(action.frame(), f -> new HashMap<>())
+                        .put(action.event(), action.visibleStepIndex());
             }
+            stepMaps = all;
         }
-        stepMaps.put(frame, built);
-        return built;
+        return stepMaps.getOrDefault(frame, java.util.Map.of());
     }
 
     private boolean hasPistonActions() {

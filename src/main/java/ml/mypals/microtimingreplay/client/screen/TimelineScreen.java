@@ -45,7 +45,8 @@ import static ml.mypals.microtimingreplay.util.StackTraceFormatter.formatStackTr
 public class TimelineScreen extends Screen {
 
     private static final int ROW_HEIGHT = 11;
-    private static final int LIST_TOP = 44;
+    /** 列表顶边：由工具栏实际占几行决定（见 init 里的 listTop 计算）。 */
+    private int listTop = 44;
     private static final int LIST_BOTTOM_MARGIN = 30;
     private static final int INDENT = 9;
     private static final int WIDTH_AT_SCALE_1 = 400;
@@ -161,40 +162,38 @@ public class TimelineScreen extends Screen {
         lastCursorRow = ClientReplayState.cursorRow();
         selectStep(ClientReplayState.currentStep());
 
-        int x = 8;
-        int y = 22;
-        x += addToolButton(MTRComponent.translatable("mtr.timeline.expand_all", "Expand all"), x, y, 74,
+        // 工具栏按窗口宽度自动换行 —— GUI 缩放一大，原来一排会顶到屏幕外（「标记 / 手册」看不见）
+        toolbarX = 8;
+        toolbarY = 22;
+        addToolButton(MTRComponent.translatable("mtr.timeline.expand_all", "Expand all"), 74,
                 () -> { collapsed.clear(); rebuildVisible(); });
-        x += addToolButton(MTRComponent.translatable("mtr.timeline.collapse_all", "Collapse all"), x, y, 84,
+        addToolButton(MTRComponent.translatable("mtr.timeline.collapse_all", "Collapse all"), 84,
                 () -> collapseToLevel(0));
         for (int level = 1; level <= 3; level++) {
             int target = level;
-            x += addToolButton(Component.literal("L" + level), x, y, 26, () -> collapseToLevel(target));
+            addToolButton(Component.literal("L" + level), 26, () -> collapseToLevel(target));
         }
 
-        followButton = Button.builder(followLabel(), button -> {
+        followButton = addTool(Button.builder(followLabel(), button -> {
             MTRClientConfig.setFollowCursor(!MTRClientConfig.followCursor());
             button.setMessage(followLabel());
-        }).bounds(x, y, 92, 16).build();
-        addRenderableWidget(followButton);
+        }).build(), 92);
 
-        Button cameraFollowButton = Button.builder(cameraFollow(), button -> {
+        addTool(Button.builder(cameraFollow(), button -> {
             MTRClientNetworking.setCameraFollow(!ClientReplayState.cameraFollow());
             button.setMessage(cameraFollow());
-        }).bounds(followButton.getWidth() + x + 4, y, 92, 16).build();
-        addRenderableWidget(cameraFollowButton);
+        }).build(), 92);
 
-        Button markersButton = Button.builder(markerLabel(), button -> {
+        addTool(Button.builder(markerLabel(), button -> {
             MTRClientConfig.setHideMarkers(!MTRClientConfig.hideMarkers());
             button.setMessage(markerLabel());
-        }).bounds(cameraFollowButton.getX() + cameraFollowButton.getWidth() + 4, y, 92, 16).build();
-        addRenderableWidget(markersButton);
+        }).build(), 92);
 
-        addRenderableWidget(Button.builder(
+        addTool(Button.builder(
                 MTRComponent.translatable("mtr.timeline.help", "Manual"),
-                button -> helpOpen = !helpOpen)
-                .bounds(markersButton.getX() + markersButton.getWidth() + 4, y, 60, 16)
-                .build());
+                button -> helpOpen = !helpOpen).build(), 60);
+
+        listTop = toolbarY + 16 + 6;
 
         int bottom = this.height - 24;
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.timeline.backward", "◀ Back"),
@@ -218,8 +217,25 @@ public class TimelineScreen extends Screen {
         }
     }
 
-    private int addToolButton(Component label, int x, int y, int width, Runnable action) {
-        addRenderableWidget(Button.builder(label, b -> action.run()).bounds(x, y, width, 16).build());
+    private int toolbarX = 8;
+    private int toolbarY = 22;
+
+    /** 工具栏按钮：放不下就换行，返回占用的宽度（便于老的调用点继续链式相加）。 */
+    private <T extends Button> T addTool(T button, int width) {
+        if (toolbarX + width > this.width - 8) {
+            toolbarX = 8;
+            toolbarY += 20;
+        }
+        button.setX(toolbarX);
+        button.setY(toolbarY);
+        button.setWidth(width);
+        addRenderableWidget(button);
+        toolbarX += width + 4;
+        return button;
+    }
+
+    private int addToolButton(Component label, int width, Runnable action) {
+        addTool(Button.builder(label, b -> action.run()).build(), width);
         return width + 4;
     }
 
@@ -294,7 +310,7 @@ public class TimelineScreen extends Screen {
     }
 
     private int detailSummaryTop() {
-        return LIST_TOP + ROW_HEIGHT + 2;
+        return listTop + ROW_HEIGHT + 2;
     }
 
     private int detailSummaryLines() {
@@ -407,7 +423,7 @@ public class TimelineScreen extends Screen {
     }
 
     private int visibleRowCount() {
-        return Math.max(1, (rowsBottom() - LIST_TOP) / ROW_HEIGHT);
+        return Math.max(1, (rowsBottom() - listTop) / ROW_HEIGHT);
     }
 
     private void clampScroll() {
@@ -547,20 +563,20 @@ public class TimelineScreen extends Screen {
     private void renderFrame(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int listBottom = listBottom();
 
-        graphics.fill(0, 0, this.width, LIST_TOP - 2, MTRWidgets.CHROME_BG);
+        graphics.fill(0, 0, this.width, listTop - 2, MTRWidgets.CHROME_BG);
         graphics.fill(0, listBottom + 2, this.width, this.height, MTRWidgets.CHROME_BG);
 
         graphics.drawString(this.font, headerLine(), 8, 8, MTRWidgets.TEXT);
 
-        MTRWidgets.panel(graphics, LIST_X, LIST_TOP - 2, panelWidth, listBottom - LIST_TOP + 4,
+        MTRWidgets.panel(graphics, LIST_X, listTop - 2, panelWidth, listBottom - listTop + 4,
                 MTRWidgets.PANEL_BG, MTRWidgets.PANEL_BORDER);
 
         if (rows().isEmpty()) {
             graphics.drawString(this.font,
                     MTRComponent.translatable("mtr.timeline.empty", "No timeline — watch a running replay first"),
-                    LIST_X + 8, LIST_TOP + 6, MTRWidgets.TEXT_DIM);
+                    LIST_X + 8, listTop + 6, MTRWidgets.TEXT_DIM);
         } else {
-            graphics.enableScissor(LIST_X + 1, LIST_TOP, contentRight(), rowsBottom());
+            graphics.enableScissor(LIST_X + 1, listTop, contentRight(), rowsBottom());
             drawRows(graphics, mouseX, mouseY, rowsBottom());
             graphics.disableScissor();
 
@@ -595,7 +611,7 @@ public class TimelineScreen extends Screen {
         }
 
         int widest = 0;
-        int y = LIST_TOP;
+        int y = listTop;
         for (int i = scroll; i < visible.size() && y < listBottom; i++) {
             int rowIndex = visible.get(i);
             MTRPayloads.TimelineRow row = rows.get(rowIndex);
@@ -693,12 +709,12 @@ public class TimelineScreen extends Screen {
         int rowsBottom = rowsBottom();
 
         if (visible.size() > rowsOnScreen) {
-            int trackHeight = rowsBottom - LIST_TOP;
+            int trackHeight = rowsBottom - listTop;
             int thumbHeight = verticalThumbHeight(trackHeight, rowsOnScreen, visible.size());
             int travel = trackHeight - thumbHeight;
-            int thumbY = LIST_TOP + (travel * scroll / Math.max(1, visible.size() - rowsOnScreen));
+            int thumbY = listTop + (travel * scroll / Math.max(1, visible.size() - rowsOnScreen));
 
-            graphics.fill(right - V_SCROLLBAR, LIST_TOP, right - 2, rowsBottom, MTRWidgets.SCROLL_TRACK);
+            graphics.fill(right - V_SCROLLBAR, listTop, right - 2, rowsBottom, MTRWidgets.SCROLL_TRACK);
             graphics.fill(right - V_SCROLLBAR, thumbY, right - 2, thumbY + thumbHeight,
                     dragging == Drag.TIMELINE_V ? MTRWidgets.SCROLL_THUMB_ACTIVE : MTRWidgets.SCROLL_THUMB);
         }
@@ -790,7 +806,7 @@ public class TimelineScreen extends Screen {
     private void drawDetails(GuiGraphics graphics, int mouseX, int mouseY) {
         int x = detailX();
         int listBottom = listBottom();
-        MTRWidgets.panel(graphics, x, LIST_TOP - 2, panelWidth, listBottom - LIST_TOP + 4,
+        MTRWidgets.panel(graphics, x, listTop - 2, panelWidth, listBottom - listTop + 4,
                 MTRWidgets.PANEL_BG, MTRWidgets.PANEL_BORDER);
 
         stackHeaderRect = ScreenRectangle.empty();
@@ -798,17 +814,17 @@ public class TimelineScreen extends Screen {
         if (selectedStep < 0) {
             graphics.drawString(this.font,
                     MTRComponent.translatable("mtr.timeline.no_selection", "Select a row to inspect it"),
-                    x + 6, LIST_TOP + 1, MTRWidgets.TEXT_DIM);
+                    x + 6, listTop + 1, MTRWidgets.TEXT_DIM);
             return;
         }
 
         graphics.drawString(this.font, MTRComponent.translatable("mtr.timeline.details", "Step #%d", selectedStep),
-                x + 6, LIST_TOP + 1, MTRWidgets.TEXT_ACCENT);
+                x + 6, listTop + 1, MTRWidgets.TEXT_ACCENT);
 
         MTRPayloads.DetailsS2C details = ClientReplayState.details(selectedStep);
         if (details == null) {
             graphics.drawString(this.font, MTRComponent.translatable("mtr.timeline.loading", "Loading…"),
-                    x + 6, LIST_TOP + ROW_HEIGHT + 1, MTRWidgets.TEXT_DIM);
+                    x + 6, listTop + ROW_HEIGHT + 1, MTRWidgets.TEXT_DIM);
             return;
         }
 
@@ -1041,7 +1057,7 @@ public class TimelineScreen extends Screen {
         }
 
         int rowsBottom = rowsBottom();
-        if (mouseY < LIST_TOP || mouseY >= rowsBottom
+        if (mouseY < listTop || mouseY >= rowsBottom
                 || mouseX < LIST_X || mouseX >= contentRight()) {
             return false;
         }
@@ -1105,7 +1121,7 @@ public class TimelineScreen extends Screen {
             previousTick = rows.get(visible.get(scroll - 1)).tick();
         }
 
-        int y = LIST_TOP;
+        int y = listTop;
         for (int i = scroll; i < visible.size() && y < listBottom; i++) {
             int rowIndex = visible.get(i);
             MTRPayloads.TimelineRow row = rows.get(rowIndex);
@@ -1195,8 +1211,8 @@ public class TimelineScreen extends Screen {
 
     private boolean overTimelineVBar(double mouseX, double mouseY) {
         if (visible.size() <= visibleRowCount()) return false;
-        return MTRWidgets.isOver(mouseX, mouseY, listRight() - V_SCROLLBAR, LIST_TOP,
-                V_SCROLLBAR, rowsBottom() - LIST_TOP);
+        return MTRWidgets.isOver(mouseX, mouseY, listRight() - V_SCROLLBAR, listTop,
+                V_SCROLLBAR, rowsBottom() - listTop);
     }
 
     private boolean overTimelineHBar(double mouseX, double mouseY) {
@@ -1237,8 +1253,8 @@ public class TimelineScreen extends Screen {
     private void applyTimelineVDrag(double mouseY) {
         int rowsOnScreen = visibleRowCount();
         int maxScroll = Math.max(0, visible.size() - rowsOnScreen);
-        int trackHeight = rowsBottom() - LIST_TOP;
-        scroll = scrollFromTrack(mouseY, LIST_TOP, trackHeight,
+        int trackHeight = rowsBottom() - listTop;
+        scroll = scrollFromTrack(mouseY, listTop, trackHeight,
                 verticalThumbHeight(trackHeight, rowsOnScreen, visible.size()), maxScroll);
     }
 
@@ -1372,7 +1388,7 @@ public class TimelineScreen extends Screen {
 
     private Drag grabRegionAt(double mouseX, double mouseY) {
         if (mouseX >= LIST_X && mouseX < contentRight()
-                && mouseY >= LIST_TOP && mouseY < rowsBottom()) {
+                && mouseY >= listTop && mouseY < rowsBottom()) {
             return Drag.GRAB_TIMELINE;
         }
         if (mouseX >= detailX() && mouseX < detailContentRight()) {
@@ -1425,7 +1441,7 @@ public class TimelineScreen extends Screen {
 
         int width = Math.clamp(panelWidth - 24, 60, SEARCH_WIDTH);
         int x = detailX() - V_SCROLLBAR - 4 - width;
-        searchBox = new EditBox(this.font, x, LIST_TOP, width, SEARCH_HEIGHT,
+        searchBox = new EditBox(this.font, x, listTop, width, SEARCH_HEIGHT,
                 MTRComponent.translatable("mtr.timeline.search", "Search"));
         searchBox.setMaxLength(128);
         searchBox.setHint(MTRComponent.translatable("mtr.timeline.search_hint", "Search labels..."));
@@ -1531,7 +1547,7 @@ public class TimelineScreen extends Screen {
 
     private boolean overViewport(double mouseX, double mouseY) {
         return mouseX >= listRight() && mouseX < detailX()
-                && mouseY >= LIST_TOP - 2 && mouseY < listBottom() + 2;
+                && mouseY >= listTop - 2 && mouseY < listBottom() + 2;
     }
 
     /**
@@ -1559,7 +1575,7 @@ public class TimelineScreen extends Screen {
     }
 
     private int viewportHeight() {
-        return Math.max(1, listBottom() + 2 - (LIST_TOP - 2));
+        return Math.max(1, listBottom() + 2 - (listTop - 2));
     }
 
     private double fovDegrees() {
