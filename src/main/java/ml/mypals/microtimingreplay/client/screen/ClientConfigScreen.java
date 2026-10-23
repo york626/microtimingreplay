@@ -39,6 +39,7 @@ public class ClientConfigScreen extends Screen {
     private Button skipStandsButton;
     private Button leafOnlyButton;
     private Button cleanRecordButton;
+    private Button blockMarkersButton;
 
     /** 所有行（按钮 + 标签）+ 基准 y，滚动时只挪按钮，标签跟着 button.getY() 走。 */
     private record Row(Button button, int baseY) {}
@@ -141,6 +142,13 @@ public class ClientConfigScreen extends Screen {
             MTRClientConfig.setCleanRecording(!MTRClientConfig.cleanRecording());
             MTRClientNetworking.sendReplayPrefs();
             b.setMessage(toggleLabel(MTRClientConfig.cleanRecording()));
+        });
+        y += ROW_HEIGHT;
+
+        blockMarkersButton = row(x, y, toggleLabel(MTRClientConfig.showBlockMarkers()), b -> {
+            MTRClientConfig.setShowBlockMarkers(!MTRClientConfig.showBlockMarkers());
+            MTRClientNetworking.sendReplayPrefs();
+            b.setMessage(toggleLabel(MTRClientConfig.showBlockMarkers()));
         });
 
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
@@ -263,6 +271,8 @@ public class ClientConfigScreen extends Screen {
                 MTRComponent.translatable("mtr.config.leaf_only", "标记只画当前步"));
         label(graphics, cleanRecordButton,
                 MTRComponent.translatable("mtr.config.clean_record", "录制时自动精简（去掉网络包/实体刷屏）"));
+        label(graphics, blockMarkersButton,
+                MTRComponent.translatable("mtr.config.block_markers", "显示玻璃方块标记"));
 
         if (!ClientReplayState.serverHasMod()) {
             graphics.drawString(this.font, MTRComponent.translatable("mtr.config.vanilla_server",

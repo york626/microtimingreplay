@@ -46,6 +46,8 @@ public class MTRClientConfig {
     private static boolean markersLeafOnly = true;
     /** 录制时自动精简（去掉网络包/实体刷屏）。 */
     private static boolean cleanRecording = true;
+    /** 回放时是否画玻璃方块标记（默认否）。 */
+    private static boolean showBlockMarkers = false;
 
     private static File configFile() {
         return new File(new File(FabricLoader.getInstance().getConfigDir().toFile(), "mtr"), "client.json");
@@ -165,6 +167,15 @@ public class MTRClientConfig {
         save();
     }
 
+    public static boolean showBlockMarkers() {
+        return showBlockMarkers;
+    }
+
+    public static void setShowBlockMarkers(boolean value) {
+        showBlockMarkers = value;
+        save();
+    }
+
     public static void setScoreboardVisible(boolean value) {
         scoreboardVisible = value;
         save();
@@ -204,6 +215,7 @@ public class MTRClientConfig {
             if (json.has("skipPlayerStandIns")) skipPlayerStandIns = json.get("skipPlayerStandIns").getAsBoolean();
             if (json.has("markersLeafOnly")) markersLeafOnly = json.get("markersLeafOnly").getAsBoolean();
             if (json.has("cleanRecording")) cleanRecording = json.get("cleanRecording").getAsBoolean();
+            if (json.has("showBlockMarkers")) showBlockMarkers = json.get("showBlockMarkers").getAsBoolean();
         } catch (Exception e) {
             MicroTimingReplay.LOGGER.error("Failed to read client.json, falling back to defaults", e);
         }
@@ -224,6 +236,7 @@ public class MTRClientConfig {
         root.addProperty("skipPlayerStandIns", skipPlayerStandIns);
         root.addProperty("markersLeafOnly", markersLeafOnly);
         root.addProperty("cleanRecording", cleanRecording);
+        root.addProperty("showBlockMarkers", showBlockMarkers);
 
         try {
             if (!file.getParentFile().exists()) {

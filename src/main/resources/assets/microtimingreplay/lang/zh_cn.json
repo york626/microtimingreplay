@@ -367,5 +367,6 @@
     "mtr.config.skip_items": "回放不生成掉落物",
     "mtr.config.skip_stands": "回放不生成玩家替身",
     "mtr.config.leaf_only": "标记只画当前步",
-    "mtr.config.clean_record": "录制时自动精简（去掉网络包/实体刷屏）"
+    "mtr.config.clean_record": "录制时自动精简（去掉网络包/实体刷屏）",
+    "mtr.config.block_markers": "显示玻璃方块标记"
 }

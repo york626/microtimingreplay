@@ -119,6 +119,9 @@ public class PistonDisplayManager {
     }
 
     public static UUID spawnStaticBlockDisplay(ServerLevel level, BlockPos blockPos, BlockState state, float xOff, float yOff, float zOff) {
+        if (!ml.mypals.microtimingreplay.replay.ReplayPrefs.showBlockMarkers()) {
+            return java.util.UUID.randomUUID();   // 不生成，但调用方还要一个 id
+        }
         Display.BlockDisplay entity = new Display.BlockDisplay(EntityType.BLOCK_DISPLAY, level);
         entity.setPos(blockPos.getX(), blockPos.getY(), blockPos.getZ());
         entity.setBlockState(state);

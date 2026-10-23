@@ -95,7 +95,8 @@ public class MTRClientNetworking {
                 MTRClientConfig.skipReplayItems(),
                 MTRClientConfig.skipPlayerStandIns(),
                 MTRClientConfig.markersLeafOnly(),
-                MTRClientConfig.cleanRecording()));
+                MTRClientConfig.cleanRecording(),
+                MTRClientConfig.showBlockMarkers()));
     }
 
     /** 清理世界里的标记展示体。 */

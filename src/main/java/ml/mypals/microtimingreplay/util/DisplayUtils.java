@@ -86,6 +86,10 @@ public class DisplayUtils {
     }
 
     public static BlockDisplay spawnOrientedBlockDisplay(ServerLevel level, Vec3 pos, BlockState blockState, Vector3f scale, Quaternionf rotation, ChatFormatting teamColor) {
+        // 默认不画玻璃标记（Ray 2026-10-23：机器本体的方块变化已经可见，玻璃盒子只会糊住画面）
+        if (!ml.mypals.microtimingreplay.replay.ReplayPrefs.showBlockMarkers()) {
+            return null;
+        }
         BlockDisplay entity = new BlockDisplay(EntityType.BLOCK_DISPLAY, level);
         float offsetX = -(scale.x() - 1.0f) / 2.0f;
         float offsetY = -(scale.y() - 1.0f) / 2.0f;

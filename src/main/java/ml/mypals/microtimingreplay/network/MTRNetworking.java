@@ -94,6 +94,7 @@ public class MTRNetworking {
             ml.mypals.microtimingreplay.replay.ReplayPrefs.setSkipPlayerStandIns(payload.skipPlayerStandIns());
             ml.mypals.microtimingreplay.replay.ReplayPrefs.setMarkersLeafOnly(payload.markersLeafOnly());
             ml.mypals.microtimingreplay.replay.ReplayPrefs.setCleanRecording(payload.cleanRecording());
+            ml.mypals.microtimingreplay.replay.ReplayPrefs.setShowBlockMarkers(payload.showBlockMarkers());
         });
 
         // 一键清理世界里残留的标记展示体（所有维度、不分会话）

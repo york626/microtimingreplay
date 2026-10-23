@@ -16,6 +16,12 @@ public final class ReplayPrefs {
     private static volatile boolean markersLeafOnly = true;
     /** 录制时自动精简：关掉网络包/实体 tick/实体移动这些噪音事件，只留机器流程与计划刻。 */
     private static volatile boolean cleanRecording = true;
+    /**
+     * 要不要生成"方块标记"（那些玻璃展示体）。
+     * 默认**关**：游戏事件/活塞/结构这类标记会生成很大的玻璃盒子，把机器糊住；
+     * 机器本身的状态变化在回放里是真实方块，不需要外加玻璃。想看得更花再打开。
+     */
+    private static volatile boolean showBlockMarkers = false;
 
     private ReplayPrefs() {
     }
@@ -50,5 +56,13 @@ public final class ReplayPrefs {
 
     public static void setCleanRecording(boolean value) {
         cleanRecording = value;
+    }
+
+    public static boolean showBlockMarkers() {
+        return showBlockMarkers;
+    }
+
+    public static void setShowBlockMarkers(boolean value) {
+        showBlockMarkers = value;
     }
 }
