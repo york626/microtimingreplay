@@ -22,7 +22,18 @@ public class VirtualScoreboardManager {
     private static final String OBJECTIVE_NAME = "mtr_timeline";
     private static final Map<UUID, Integer> lastLineCounts = new HashMap<>();
 
+    /** 谁目前挂着我们的虚拟记分板 —— 重复 setup 会让客户端收到重复 objective 直接断线。 */
+    private static final Set<UUID> ACTIVE = new HashSet<>();
+
+    public static boolean isActive(ServerPlayer player) {
+        return player != null && ACTIVE.contains(player.getUUID());
+    }
+
     public static void setupScoreboard(ServerPlayer player) {
+        if (player == null) return;
+        if (!ACTIVE.add(player.getUUID())) {
+            return;   // 已经挂着，别再发一次 add
+        }
         Scoreboard dummy = new Scoreboard();
         Objective objective = new Objective(dummy, OBJECTIVE_NAME, ObjectiveCriteria.DUMMY, MTRComponent.translatable("mtr.scoreboard.title", "Replay Timeline"), ObjectiveCriteria.RenderType.INTEGER, false, null);
         
@@ -32,6 +43,10 @@ public class VirtualScoreboardManager {
     }
 
     public static void removeScoreboard(ServerPlayer player) {
+        if (player == null) return;
+        if (!ACTIVE.remove(player.getUUID())) {
+            return;   // 本来就没挂，别发 remove
+        }
         Scoreboard dummy = new Scoreboard();
         Objective objective = new Objective(dummy, OBJECTIVE_NAME, ObjectiveCriteria.DUMMY, MTRComponent.translatable("mtr.scoreboard.title", "Replay Timeline"), ObjectiveCriteria.RenderType.INTEGER, false, null);
         

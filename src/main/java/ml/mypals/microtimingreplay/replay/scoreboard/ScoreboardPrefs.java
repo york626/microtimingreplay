@@ -30,7 +30,10 @@ public final class ScoreboardPrefs {
             VirtualScoreboardManager.removeScoreboard(player);
         } else {
             HIDDEN.remove(player.getUUID());
-            VirtualScoreboardManager.setupScoreboard(player);
+            // 只有在看回放时才重新挂 —— 否则会在没有回放的情况下凭空多出一个侧栏
+            if (ml.mypals.microtimingreplay.replay.ReplayManager.subscribedSession(player) != null) {
+                VirtualScoreboardManager.setupScoreboard(player);
+            }
         }
     }
 

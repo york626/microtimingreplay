@@ -133,7 +133,17 @@ public class MTRNetworking {
                         ReplayManager.isRunning(name) ? "这个配置档已经在回放中：" + name : "正在录制中，先停止录制"));
                 return;
             }
-            if (ReplayManager.start(profile) == null) {
+            // 准备阶段要读档 + 备份区域世界，大区域会顿一下；先告诉玩家不是卡死
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("正在准备回放（备份区域世界）…"), true);
+            long mtrStartAt = System.nanoTime();
+            ReplaySession started = ReplayManager.start(profile);
+            long mtrStartMs = (System.nanoTime() - mtrStartAt) / 1_000_000L;
+            if (mtrStartMs >= 200) {
+                ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                        "[mtr-perf] replay-start {}ms profile={}", mtrStartMs, name);
+            }
+            if (started == null) {
                 ServerPlayNetworking.send(player, new MTRPayloads.QuickRecordStateS2C(false, name, 0, 0, 5000,
                         "回放启动失败：" + name));
                 return;
