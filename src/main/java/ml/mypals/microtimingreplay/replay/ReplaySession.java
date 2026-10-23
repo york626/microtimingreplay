@@ -750,6 +750,7 @@ public class ReplaySession {
         actionCursor = Math.clamp(actionCursor, 0, flatActions.size());
         int taken = 0;
         int startCursor = actionCursor;
+        long t0 = System.nanoTime();
 
         while (taken < amount && actionCursor < flatActions.size()) {
             ReplayAction startAction = flatActions.get(actionCursor);
@@ -787,11 +788,25 @@ public class ReplaySession {
             taken++;
         }
 
+        long t1 = System.nanoTime();
         renderCurrentState(level, startCursor);
+        long t2 = System.nanoTime();
         notifyStateChanged();
+        long t3 = System.nanoTime();
+        mtrPerf("forward", t0, t1, t2, t3, taken);
         if (taken > 0)
             level.getServer().tickRateManager().stepGameIfPaused(2);
         return taken;
+    }
+
+    /** 定向探针：一次步进超过 10ms 才打一行，用来定位到底卡在「应用/渲染/通知」哪一段。 */
+    private void mtrPerf(String tag, long t0, long t1, long t2, long t3, int taken) {
+        long total = (t3 - t0) / 1_000_000L;
+        if (total < 10) return;
+        MicroTimingReplay.LOGGER.info(
+                "[mtr-perf] {} total={}ms apply={}ms render={}ms notify={}ms cursor={} actions={} taken={}",
+                tag, total, (t1 - t0) / 1_000_000L, (t2 - t1) / 1_000_000L, (t3 - t2) / 1_000_000L,
+                actionCursor, flatActions.size(), taken);
     }
 
     private int stepBackward(ServerLevel level, int amount, String unit) {

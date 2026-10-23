@@ -62,10 +62,10 @@ public final class QuickRecordService {
             return State.idle("选区太大（" + volume + " 格，上限 " + MAX_VOLUME + "）");
         }
 
-        // 名字不用选区名（选区常叫「———72W———」这种，显示又长又丑）⇒ 自动编号 rec1、rec2…
-        // 选区名只保留成「区域名」，需要时还能认出来。
-        String name = nextProfileName();
+        // 名字**跟着投影选区走**（Ray 2026-10-23：录制就是拿选区框的，名字正好联动），
+        // 只做三件事：去掉非法字符、合并连续下划线、截到 20 字；选不出名字才退回 recN。
         String areaName = sanitizeName(rawName);
+        String name = areaName.isEmpty() ? nextProfileName() : areaName;
         String dimension = player.serverLevel().dimension().location().toString();
         MinecraftServer server = player.serverLevel().getServer();
         if (server == null) {
@@ -224,13 +224,16 @@ public final class QuickRecordService {
         return "rec" + (System.currentTimeMillis() % 100000);
     }
 
-    /** 配置档名只允许 {@code A-Z a-z 0-9 _ . + -}（和 /mtr profile create 的规则一致）。 */
+    /**
+     * 配置档名：**允许中文**（这是我们的 fork，文件名/命令都能吃），只把路径不友好的字符换成下划线。
+     * 上限 20 字，够认出是哪台机器，又不至于把面板撑爆。
+     */
     private static String sanitizeName(String raw) {
         String s = raw == null ? "" : raw.trim();
-        s = s.replaceAll("[^A-Za-z0-9_.+-]", "_");
-        if (s.length() > 48) {
-            s = s.substring(0, 48);
+        s = s.replaceAll("[^\\p{L}\\p{N}_.+-]", "_").replaceAll("_+", "_").replaceAll("^_|_$", "");
+        if (s.length() > 20) {
+            s = s.substring(0, 20);
         }
-        return s.isEmpty() ? "quick" : s;
+        return s;
     }
 }

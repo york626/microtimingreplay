@@ -531,6 +531,20 @@ public class TimelineScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        long mtrFrameStart = System.nanoTime();
+        try {
+            renderFrame(graphics, mouseX, mouseY, partialTick);
+        } finally {
+            long ms = (System.nanoTime() - mtrFrameStart) / 1_000_000L;
+            if (ms >= 40) {
+                ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                        "[mtr-perf] client-render {}ms rows={} visible={} scroll={}",
+                        ms, rows().size(), visible.size(), scroll);
+            }
+        }
+    }
+
+    private void renderFrame(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int listBottom = listBottom();
 
         graphics.fill(0, 0, this.width, LIST_TOP - 2, MTRWidgets.CHROME_BG);
