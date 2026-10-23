@@ -165,9 +165,40 @@ public class MTRNetworking {
                 ml.mypals.microtimingreplay.marker.PistonDisplayManager.clearAll(level);
                 clearedMarkers += ml.mypals.microtimingreplay.marker.MarkerManager.clearEveryMarker(level);
             }
-            if (clearedMarkers > 0) {
-                ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
-                        "[mtr-perf] 开回放前清掉 {} 个残留标记实体", clearedMarkers);
+            ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                    "[mtr-perf] 开回放前清掉 {} 个残留标记实体", clearedMarkers);
+
+            // 诊断：把选区里的「展示体」按 tag 分组打个统计，用来判断半透明方块到底是谁生成的
+            try {
+                java.util.Map<String, Integer> groups = new java.util.TreeMap<>();
+                MTRProfile started = ProfileManager.loadProfile(name);
+                for (net.minecraft.server.level.ServerLevel level : player.server.getAllLevels()) {
+                    String dim = level.dimension().location().toString();
+                    java.util.List<net.minecraft.world.phys.AABB> boxes = new java.util.ArrayList<>();
+                    if (started != null) {
+                        for (MTRProfile.Area area : started.getAreas()) {
+                            if (!MTRProfile.matchDimension(area.dimension, dim)) continue;
+                            boxes.add(new net.minecraft.world.phys.AABB(
+                                    Math.min(area.x1, area.x2), Math.min(area.y1, area.y2),
+                                    Math.min(area.z1, area.z2),
+                                    Math.max(area.x1, area.x2) + 1, Math.max(area.y1, area.y2) + 1,
+                                    Math.max(area.z1, area.z2) + 1));
+                        }
+                    }
+                    if (boxes.isEmpty()) continue;
+                    for (net.minecraft.world.entity.Entity entity : level.getAllEntities()) {
+                        if (!(entity instanceof net.minecraft.world.entity.Display)) continue;
+                        boolean inside = boxes.stream().anyMatch(box -> box.contains(entity.position()));
+                        if (!inside) continue;
+                        String key = entity.getTags().isEmpty()
+                                ? "(无 tag) " + entity.getType().toString()
+                                : String.join(",", new java.util.TreeSet<>(entity.getTags()));
+                        groups.merge(key, 1, Integer::sum);
+                    }
+                }
+                groups.forEach((key, count) -> ml.mypals.microtimingreplay.MicroTimingReplay.LOGGER.info(
+                        "[mtr-perf] 区内展示体 {} ×{}", key, count));
+            } catch (Throwable ignored) {
             }
 
             // 他想边逐步边看，所以默认先把时间冻上（等价 /tick freeze），省一步
