@@ -14,6 +14,8 @@ public final class ReplayPrefs {
     private static volatile boolean skipPlayerStandIns = true;
     /** 标记只画当前这一步的目标方块，不画作用域链（父级标记叠起来会把机器糊成一片半透明）。 */
     private static volatile boolean markersLeafOnly = true;
+    /** 录制时自动精简：关掉网络包/实体 tick/实体移动这些噪音事件，只留机器流程与计划刻。 */
+    private static volatile boolean cleanRecording = true;
 
     private ReplayPrefs() {
     }
@@ -40,5 +42,13 @@ public final class ReplayPrefs {
 
     public static void setMarkersLeafOnly(boolean value) {
         markersLeafOnly = value;
+    }
+
+    public static boolean cleanRecording() {
+        return cleanRecording;
+    }
+
+    public static void setCleanRecording(boolean value) {
+        cleanRecording = value;
     }
 }

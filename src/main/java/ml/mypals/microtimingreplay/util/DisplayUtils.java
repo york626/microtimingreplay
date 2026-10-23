@@ -50,7 +50,12 @@ public class DisplayUtils {
     public static boolean isMarker(Entity entity) {
         if (entity == null) return false;
         Component name = entity.getCustomName();
-        return name != null && MARKER_NAME.equals(name.getString());
+        if (name != null && MARKER_NAME.equals(name.getString())) return true;
+        // 活塞展示体（PistonDisplayManager 生成的）没有自定义名，但它同样是标记 ——
+        // 不认它的话「标记：隐藏」关不干净，画面上还会剩半透明方块。
+        return entity.getTags().contains("mtr_piston_display")
+                || entity.getTags().contains("mtr_replay_marker")
+                || entity.getTags().contains("mtr_marker");
     }
 
     public static BlockState getGlassState(ChatFormatting color) {

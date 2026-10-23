@@ -94,7 +94,8 @@ public class MTRClientNetworking {
         send(new MTRPayloads.SetReplayPrefsC2S(
                 MTRClientConfig.skipReplayItems(),
                 MTRClientConfig.skipPlayerStandIns(),
-                MTRClientConfig.markersLeafOnly()));
+                MTRClientConfig.markersLeafOnly(),
+                MTRClientConfig.cleanRecording()));
     }
 
     /** 清理世界里的标记展示体。 */

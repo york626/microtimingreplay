@@ -44,6 +44,8 @@ public class MTRClientConfig {
     private static boolean skipPlayerStandIns = true;
     /** 标记只画当前步（不画作用域链）。 */
     private static boolean markersLeafOnly = true;
+    /** 录制时自动精简（去掉网络包/实体刷屏）。 */
+    private static boolean cleanRecording = true;
 
     private static File configFile() {
         return new File(new File(FabricLoader.getInstance().getConfigDir().toFile(), "mtr"), "client.json");
@@ -154,6 +156,15 @@ public class MTRClientConfig {
         save();
     }
 
+    public static boolean cleanRecording() {
+        return cleanRecording;
+    }
+
+    public static void setCleanRecording(boolean value) {
+        cleanRecording = value;
+        save();
+    }
+
     public static void setScoreboardVisible(boolean value) {
         scoreboardVisible = value;
         save();
@@ -192,6 +203,7 @@ public class MTRClientConfig {
             if (json.has("skipReplayItems")) skipReplayItems = json.get("skipReplayItems").getAsBoolean();
             if (json.has("skipPlayerStandIns")) skipPlayerStandIns = json.get("skipPlayerStandIns").getAsBoolean();
             if (json.has("markersLeafOnly")) markersLeafOnly = json.get("markersLeafOnly").getAsBoolean();
+            if (json.has("cleanRecording")) cleanRecording = json.get("cleanRecording").getAsBoolean();
         } catch (Exception e) {
             MicroTimingReplay.LOGGER.error("Failed to read client.json, falling back to defaults", e);
         }
@@ -211,6 +223,7 @@ public class MTRClientConfig {
         root.addProperty("skipReplayItems", skipReplayItems);
         root.addProperty("skipPlayerStandIns", skipPlayerStandIns);
         root.addProperty("markersLeafOnly", markersLeafOnly);
+        root.addProperty("cleanRecording", cleanRecording);
 
         try {
             if (!file.getParentFile().exists()) {

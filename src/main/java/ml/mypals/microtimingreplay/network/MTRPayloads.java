@@ -383,15 +383,18 @@ public class MTRPayloads {
 
     /** 回放期偏好（掉落物 / 玩家替身 / 标记只画当前步）。 */
     public record SetReplayPrefsC2S(boolean skipItemEntities, boolean skipPlayerStandIns,
-                                    boolean markersLeafOnly) implements CustomPacketPayload {
+                                    boolean markersLeafOnly, boolean cleanRecording)
+            implements CustomPacketPayload {
         public static final Type<SetReplayPrefsC2S> TYPE = MTRPayloads.payloadType("set_replay_prefs_c2s");
         public static final StreamCodec<RegistryFriendlyByteBuf, SetReplayPrefsC2S> CODEC = StreamCodec.of(
                 (buf, payload) -> {
                     buf.writeBoolean(payload.skipItemEntities());
                     buf.writeBoolean(payload.skipPlayerStandIns());
                     buf.writeBoolean(payload.markersLeafOnly());
+                    buf.writeBoolean(payload.cleanRecording());
                 },
-                buf -> new SetReplayPrefsC2S(buf.readBoolean(), buf.readBoolean(), buf.readBoolean()));
+                buf -> new SetReplayPrefsC2S(buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
+                        buf.readBoolean()));
 
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

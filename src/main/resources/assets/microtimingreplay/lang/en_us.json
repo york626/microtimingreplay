@@ -366,5 +366,6 @@
     "mtr.config.clear_markers_label": "Clear leftover markers",
     "mtr.config.skip_items": "Replay: no item drops",
     "mtr.config.skip_stands": "Replay: no player stand-ins",
-    "mtr.config.leaf_only": "Markers: current step only"
+    "mtr.config.leaf_only": "Markers: current step only",
+    "mtr.config.clean_record": "Auto-trim recording (skip packets/entity spam)"
 }

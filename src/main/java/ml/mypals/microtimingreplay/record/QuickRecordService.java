@@ -78,6 +78,14 @@ public final class QuickRecordService {
                 return State.idle("覆盖旧配置档失败：" + name);
             }
         }
+        // 录制前把噪音事件关掉（可在设置里关掉这个行为，或事后在「过滤器」里改回来）
+        if (ml.mypals.microtimingreplay.replay.ReplayPrefs.cleanRecording()) {
+            for (String noisy : new String[]{"network_packet", "entity_tick", "entity_move"}) {
+                ml.mypals.microtimingreplay.config.RecordingFilterConfig.setMode(
+                        noisy, ml.mypals.microtimingreplay.config.RecordMode.OFF);
+            }
+        }
+
         MTRProfile profile = ProfileManager.createProfile(name);
         if (profile == null) {
             return State.idle("创建配置档失败：" + name);
