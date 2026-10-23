@@ -89,6 +89,11 @@ public class MTRClientNetworking {
         send(new MTRPayloads.QuickReplayC2S(MTRPayloads.QuickReplayC2S.ACTION_START, profile));
     }
 
+    /** 删掉某一份录制。 */
+    public static void deleteProfile(String name) {
+        send(new MTRPayloads.DeleteProfileC2S(name));
+    }
+
     /** 要一份可回放的录制列表。 */
     public static void requestProfiles() {
         send(MTRPayloads.ListProfilesC2S.INSTANCE);

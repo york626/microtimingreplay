@@ -391,6 +391,16 @@ public class MTRPayloads {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** 删掉某一份录制（回放选择页的 ✕）。 */
+    public record DeleteProfileC2S(String name) implements CustomPacketPayload {
+        public static final Type<DeleteProfileC2S> TYPE = MTRPayloads.payloadType("delete_profile_c2s");
+        public static final StreamCodec<RegistryFriendlyByteBuf, DeleteProfileC2S> CODEC = StreamCodec.of(
+                (buf, payload) -> buf.writeUtf(payload.name(), 128),
+                buf -> new DeleteProfileC2S(buf.readUtf(128)));
+
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     /** 一条录制：名字 + 刻数 + 事件数（列表里给人看的）。 */
     public record ProfileEntry(String name, int ticks, int events) {
     }

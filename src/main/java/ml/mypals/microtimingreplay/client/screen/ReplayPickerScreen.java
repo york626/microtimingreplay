@@ -55,6 +55,14 @@ public class ReplayPickerScreen extends Screen {
             MTRPayloads.ProfileEntry entry = entries.get(i);
             int y = LIST_TOP + (i - scroll) * ROW_HEIGHT;
             boolean running = ClientReplayState.runningSessions().contains(entry.name());
+
+            // ✕ 删除：第一下变成「确认?」，3 秒内再点才真的删（防手滑）
+            boolean confirming = isConfirming(entry.name());
+            addRenderableWidget(Button.builder(
+                            Component.literal(confirming ? "确认?" : "✕"),
+                            b -> onDelete(entry.name()))
+                    .bounds(x + 2, y, confirming ? 34 : 16, 18).build());
+
             addRenderableWidget(Button.builder(
                             running
                                     ? MTRComponent.translatable("mtr.picker.playing", "正在回放 · 点此停止")
@@ -66,6 +74,30 @@ public class ReplayPickerScreen extends Screen {
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.picker.close", "关闭"),
                         b -> this.minecraft.setScreen(this.parent))
                 .bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
+    }
+
+    private static final long CONFIRM_MILLIS = 3000L;
+    private final java.util.Map<String, Long> pendingDelete = new java.util.HashMap<>();
+
+    private boolean isConfirming(String name) {
+        Long at = pendingDelete.get(name);
+        if (at == null) return false;
+        if (System.currentTimeMillis() - at > CONFIRM_MILLIS) {
+            pendingDelete.remove(name);
+            return false;
+        }
+        return true;
+    }
+
+    private void onDelete(String name) {
+        if (!isConfirming(name)) {
+            pendingDelete.put(name, System.currentTimeMillis());
+            rebuildRows();
+            return;
+        }
+        pendingDelete.remove(name);
+        MTRClientNetworking.deleteProfile(name);
+        // 服务端删完会推一份新的列表回来（revision 变了会自动刷新）
     }
 
     private void onPick(MTRPayloads.ProfileEntry entry, boolean running) {
@@ -140,7 +172,7 @@ public class ReplayPickerScreen extends Screen {
                 }
                 name = name + "…";
             }
-            graphics.drawString(this.font, name, x + 6, y + 4, 0xFFFFFFFF, false);
+            graphics.drawString(this.font, name, x + (isConfirming(entry.name()) ? 40 : 22), y + 4, 0xFFFFFFFF, false);
 
             String detail = MTRComponent.translatable("mtr.picker.detail", "%s 刻 · %s 事件",
                     entry.ticks(), entry.events()).getString();

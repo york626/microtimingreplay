@@ -56,6 +56,7 @@ public class MTRNetworking {
         PayloadTypeRegistry.playC2S().register(MTRPayloads.QuickReplayC2S.TYPE, MTRPayloads.QuickReplayC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.SetScoreboardC2S.TYPE, MTRPayloads.SetScoreboardC2S.CODEC);
         PayloadTypeRegistry.playC2S().register(MTRPayloads.ListProfilesC2S.TYPE, MTRPayloads.ListProfilesC2S.CODEC);
+        PayloadTypeRegistry.playC2S().register(MTRPayloads.DeleteProfileC2S.TYPE, MTRPayloads.DeleteProfileC2S.CODEC);
         PayloadTypeRegistry.playS2C().register(MTRPayloads.ProfileListS2C.TYPE, MTRPayloads.ProfileListS2C.CODEC);
 
         PayloadTypeRegistry.playS2C().register(MTRPayloads.HelloS2C.TYPE, MTRPayloads.HelloS2C.CODEC);
@@ -83,6 +84,18 @@ public class MTRNetworking {
         // 回放选择页：要一份可回放的录制列表（按文件改动时间倒序，最多 40 条）
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.ListProfilesC2S.TYPE, (payload, context) ->
                 sendProfileList(context.player()));
+
+        // 删除一份录制（正在放的话先停掉，否则文件被占）
+        ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.DeleteProfileC2S.TYPE, (payload, context) -> {
+            ServerPlayer player = context.player();
+            if (!isAllowed(player)) return;
+            String name = payload.name();
+            if (ReplayManager.isRunning(name)) {
+                ReplayManager.stop(name);
+            }
+            ProfileManager.deleteProfile(name);
+            sendProfileList(player);
+        });
 
         // 时间轴侧栏 显示/隐藏
         ServerPlayNetworking.registerGlobalReceiver(MTRPayloads.SetScoreboardC2S.TYPE, (payload, context) ->
