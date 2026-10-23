@@ -31,6 +31,7 @@
     "client.ClientEntityMixin",
     "client.ClientPacketListenerMixin",
     "client.EntityRenderDispatcherMixin",
-    "client.MarkerVisibilityMixin"
+    "client.MarkerVisibilityMixin",
+    "client.MouseScrollMixin"
   ]
 }

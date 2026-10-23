@@ -34,6 +34,8 @@ public class MTRClientConfig {
     private static boolean followCursor = true;
     private static int panelHoldMillis = 0;
     private static boolean hideMarkers = false;
+    /** Ctrl + 鼠标滚轮 = 前进/后退一小步（Ray 2026-10-23 要的手感）。 */
+    private static boolean ctrlScrollStep = true;
 
     private static File configFile() {
         return new File(new File(FabricLoader.getInstance().getConfigDir().toFile(), "mtr"), "client.json");
@@ -109,6 +111,15 @@ public class MTRClientConfig {
         return hideMarkers;
     }
 
+    public static boolean ctrlScrollStep() {
+        return ctrlScrollStep;
+    }
+
+    public static void setCtrlScrollStep(boolean value) {
+        ctrlScrollStep = value;
+        save();
+    }
+
     public static void setHideMarkers(boolean value) {
         hideMarkers = value;
         save();
@@ -132,6 +143,7 @@ public class MTRClientConfig {
             if (json.has("followCursor")) followCursor = json.get("followCursor").getAsBoolean();
             if (json.has("panelHoldMillis")) panelHoldMillis = Math.clamp(json.get("panelHoldMillis").getAsInt(), 0, 2000);
             if (json.has("hideMarkers")) hideMarkers = json.get("hideMarkers").getAsBoolean();
+            if (json.has("ctrlScrollStep")) ctrlScrollStep = json.get("ctrlScrollStep").getAsBoolean();
         } catch (Exception e) {
             MicroTimingReplay.LOGGER.error("Failed to read client.json, falling back to defaults", e);
         }
@@ -146,6 +158,7 @@ public class MTRClientConfig {
         root.addProperty("followCursor", followCursor);
         root.addProperty("panelHoldMillis", panelHoldMillis);
         root.addProperty("hideMarkers", hideMarkers);
+        root.addProperty("ctrlScrollStep", ctrlScrollStep);
 
         try {
             if (!file.getParentFile().exists()) {

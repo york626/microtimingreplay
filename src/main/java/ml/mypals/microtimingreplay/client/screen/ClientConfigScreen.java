@@ -31,6 +31,7 @@ public class ClientConfigScreen extends Screen {
     private Button followButton;
     private Button holdButton;
     private Button watchButton;
+    private Button ctrlScrollButton;
 
     /** Presets for the hold threshold; 0 means the panel appears the instant the key goes down. */
     private static final List<Integer> HOLD_DELAYS = List.of(0, 150, 250, 400, 600);
@@ -84,6 +85,11 @@ public class ClientConfigScreen extends Screen {
             b.setMessage(watchLabel());
         });
 
+        ctrlScrollButton = row(x, y, ctrlScrollLabel(), b -> {
+            MTRClientConfig.setCtrlScrollStep(!MTRClientConfig.ctrlScrollStep());
+            b.setMessage(ctrlScrollLabel());
+        });
+
         addRenderableWidget(Button.builder(MTRComponent.translatable("mtr.config.close", "Done"),
                 b -> onClose()).bounds(this.width / 2 - 50, this.height - 30, 100, 20).build());
     }
@@ -127,6 +133,11 @@ public class ClientConfigScreen extends Screen {
                 : MTRComponent.translatable("mtr.config.hold_ms", "%d ms", millis);
     }
 
+    private Component ctrlScrollLabel() {
+        return MTRComponent.translatable(MTRClientConfig.ctrlScrollStep() ? "mtr.config.on" : "mtr.config.off",
+                MTRClientConfig.ctrlScrollStep() ? "On" : "Off");
+    }
+
     private Component watchLabel() {
         if (ClientReplayState.isWatching()) {
             return MTRComponent.translatable("mtr.config.unwatch", "Stop watching");
@@ -151,13 +162,8 @@ public class ClientConfigScreen extends Screen {
         label(graphics, followButton, MTRComponent.translatable("mtr.config.follow", "Timeline follows cursor"));
         label(graphics, holdButton, MTRComponent.translatable("mtr.config.hold", "Hold before panel opens"));
         label(graphics, watchButton, MTRComponent.translatable("mtr.config.subscription", "Subscription"));
-        // 前进/后退热键：只显示当前绑定 + 去哪改（原版控制界面自己会列出这两条）
-        graphics.drawString(this.font, MTRComponent.translatable(
-                        "mtr.config.step_keys",
-                        "Step keys: forward = %s · backward = %s (rebind in Controls)",
-                        MTRKeys.stepForward == null ? "-" : MTRKeys.stepForward.getTranslatedKeyMessage().getString(),
-                        MTRKeys.stepBackward == null ? "-" : MTRKeys.stepBackward.getTranslatedKeyMessage().getString()),
-                LABEL_X, this.height - 64, MTRWidgets.TEXT_DIM);
+        label(graphics, ctrlScrollButton,
+                MTRComponent.translatable("mtr.config.ctrl_scroll", "Ctrl + scroll wheel = step"));
 
         graphics.drawString(this.font, MTRComponent.translatable("mtr.config.keybind",
                         "Hold %s for the hotbar panel — rebind it in Controls",

@@ -39,20 +39,7 @@ public class MTRClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(MTRClient::openPanelWhenHeld);
-        ClientTickEvents.END_CLIENT_TICK.register(MTRClient::handleStepKeys);
         ClientTickEvents.END_CLIENT_TICK.register(TimelineAutoHide::tick);
-    }
-
-    /** 回放中按「前进/后退」热键：只在自己正在看回放时生效，避免误操作别人的会话。 */
-    private static void handleStepKeys(Minecraft minecraft) {
-        if (MTRKeys.stepForward == null || MTRKeys.stepBackward == null) return;
-        boolean watching = ClientReplayState.isWatching();
-        while (MTRKeys.stepForward.consumeClick()) {
-            if (watching) MTRClientNetworking.step(true);
-        }
-        while (MTRKeys.stepBackward.consumeClick()) {
-            if (watching) MTRClientNetworking.step(false);
-        }
     }
 
     /** When the bound key went down, or 0 while it is up. */

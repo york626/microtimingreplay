@@ -34,8 +34,8 @@ public class MTRPanelScreen extends Screen {
     private static final int PANEL_WIDTH = 430;
     /** 面板高度：卡片按宽度换行，行数变了这里跟着变（见 position()）。 */
     private int panelHeight = 64;
-    /** Clearance for the hotbar plus the experience bar underneath the panel. */
-    private static final int BOTTOM_MARGIN = 46;
+    /** 面板底边离屏幕底的距离：正好压在快捷栏上沿（Ray 2026-10-23：别浮那么高）。 */
+    private static final int BOTTOM_MARGIN = 24;
 
     private static final int CARD_HEIGHT = 18;
     private static final int CARD_GAP = 4;

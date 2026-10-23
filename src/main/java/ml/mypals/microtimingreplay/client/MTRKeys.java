@@ -20,25 +20,11 @@ public class MTRKeys {
     public static final String CATEGORY = "key.category.microtimingreplay.main";
 
     public static KeyMapping panel;
-    /** 回放时「前进 / 后退一小步」——默认不绑键，玩家自己在控制里设。 */
-    public static KeyMapping stepForward;
-    public static KeyMapping stepBackward;
-
     public static void register() {
         panel = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.microtimingreplay.panel",
                 InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_LEFT_ALT,
-                CATEGORY));
-        stepForward = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                "key.microtimingreplay.step_forward",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
-                CATEGORY));
-        stepBackward = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-                "key.microtimingreplay.step_backward",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
                 CATEGORY));
     }
 

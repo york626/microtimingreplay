@@ -1037,6 +1037,10 @@ public class ReplaySession {
      * 所以只是临时高亮，不会留在世界里。
      */
     public void highlightStep(ServerLevel level, int step) {
+        // 反复点行会不断 spawn 展示体、旧的又不消失 ⇒ 看起来就像"幽灵方块"。
+        // 先清一次再按当前光标重画，保证世界里只有「当前步 + 这一次高亮」。
+        renderCurrentState(level, actionCursor);
+
         List<ReplayAction> flat = getFlatActionsSnapshot();
         for (int i = flat.size() - 1; i >= 0; i--) {
             ReplayAction action = flat.get(i);
