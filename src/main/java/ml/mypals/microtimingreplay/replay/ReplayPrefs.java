@@ -22,6 +22,8 @@ public final class ReplayPrefs {
      * 机器本身的状态变化在回放里是真实方块，不需要外加玻璃。想看得更花再打开。
      */
     private static volatile boolean showBlockMarkers = false;
+    /** 计划刻的 T/P/S 文字提示（光标停在那一步时才画）。 */
+    private static volatile boolean showScheduleTickText = true;
 
     private ReplayPrefs() {
     }
@@ -64,5 +66,13 @@ public final class ReplayPrefs {
 
     public static void setShowBlockMarkers(boolean value) {
         showBlockMarkers = value;
+    }
+
+    public static boolean showScheduleTickText() {
+        return showScheduleTickText;
+    }
+
+    public static void setShowScheduleTickText(boolean value) {
+        showScheduleTickText = value;
     }
 }
