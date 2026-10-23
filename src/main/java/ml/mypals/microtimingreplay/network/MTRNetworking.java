@@ -91,8 +91,9 @@ public class MTRNetworking {
             ServerPlayer player = context.player();
             if (!isAllowed(player)) return;
             for (net.minecraft.server.level.ServerLevel level : player.server.getAllLevels()) {
-                ml.mypals.microtimingreplay.marker.MarkerManager.clearAll(level, null);
                 ml.mypals.microtimingreplay.marker.PistonDisplayManager.clearAll(level);
+                ml.mypals.microtimingreplay.replay.EntityReplayManager.clearAll(level);
+                ml.mypals.microtimingreplay.marker.MarkerManager.clearEveryMarker(level);
             }
             player.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("已清理世界里的标记"), true);

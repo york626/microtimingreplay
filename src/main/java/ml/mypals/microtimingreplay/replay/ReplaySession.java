@@ -352,7 +352,10 @@ public class ReplaySession {
         subscribers.add(player.getUUID());
         if (bossBar != null) {
             bossBar.addPlayer(player);
-            VirtualScoreboardManager.setupScoreboard(player);
+            // 用户把侧栏关了就别再挂回来（原来每次新开回放都会重新出现）
+            if (!ml.mypals.microtimingreplay.replay.scoreboard.ScoreboardPrefs.hidden(player)) {
+                VirtualScoreboardManager.setupScoreboard(player);
+            }
             updateScoreboards();
         }
         // Covers both entry points — the command and the add-on's subscribe packet.
@@ -534,6 +537,7 @@ public class ReplaySession {
 
     private void renderCurrentState(ServerLevel level, int startCursor) {
         MarkerManager.clearAll(level, sessionId);
+        renderScheduledTicks(level);
 
         PistonDisplayManager.beginRenderPistons();
 
@@ -647,6 +651,31 @@ public class ReplaySession {
         float width = 0.1f + pCount * 0.15f;
         float height = 1.1f + pCount * 0.1f;
         return new Vector3f(width, height, width);
+    }
+
+    /**
+     * 把「当前这一 tick 里排的所有计划刻」都标出来（三行 T/P/S 数字）。
+     *
+     * <p>原来只有光标正好停在某条 {@code 添加计划刻} 上才看得见，所以像侦测器那种
+     * 一秒几十次调度的机器，几乎永远碰不到。现在按 YACA 的观感：本 tick 里有几条就全画出来。
+     */
+    private void renderScheduledTicks(ServerLevel level) {
+        int index = Math.clamp(actionCursor - 1, 0, Math.max(0, flatActions.size() - 1));
+        if (flatActions.isEmpty()) return;
+        TickFrame frame = flatActions.get(index).frame();
+        if (frame == null) return;
+        for (MTREvent event : frame.getEvents()) {
+            renderScheduledTickRecursive(level, event);
+        }
+    }
+
+    private void renderScheduledTickRecursive(ServerLevel level, MTREvent event) {
+        if (event instanceof AddScheduleTickEvent tickEvent && tickEvent.isDisplayed()) {
+            tickEvent.display(resolveLevel(level, tickEvent));
+        }
+        for (MTREvent child : event.getChildren()) {
+            renderScheduledTickRecursive(level, child);
+        }
     }
 
     /** A leaving scope is always grey, whatever colour the event itself carries. */
