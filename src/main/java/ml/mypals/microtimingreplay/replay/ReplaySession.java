@@ -673,54 +673,65 @@ public class ReplaySession {
      * 走刻时把它替换成落点方块——而冻结回放不推进真实游戏刻（v1.3.7 起），这个 tick 永远等不到，
      * B36 就一直以「看不见的方块」挂在世界里（活塞推/拉 ⇒ 方块变透明/空洞的根源）。
      *
-     * <p>落点状态两个来源（前者更准）：
+     * <p>扫描范围＝**整个回放区域**（不信任任何索引/事件来源）：不管这个 B36 是回放事件写进去的、
+     * 录制起点快照里带的、还是区域边界漏录造成的，统统在每一步被落位。落点状态按精度取：
      * <ol>
-     *   <li>光标之后**最近一次**完结记录：正是当前这场「移动中」的真实结局（倒着走回窗口时也成立）。</li>
-     *   <li>光标之前**最近一次**出生记录的 movedState：录制中断在移动半路、等不到完结时的兜底。</li>
+     *   <li>光标之后**最近一次**完结记录（正是当前这场「移动中」的真实结局，倒着走回窗口时也成立）；</li>
+     *   <li>光标之前**最近一次**出生记录的 movedState（录制中断在移动半路时的兜底）；</li>
+     *   <li>都没有 ⇒ 空气（没有可靠数据时不猜测方块）。</li>
      * </ol>
-     * 写入用 {@code SILENT_SET_BLOCK}（同步客户端、不触发邻居更新），回放本身也在下一步应用同一条
-     * 完结事件（写同态＝幂等），所以不会打乱事件流。
+     * 写入用 {@code SILENT_SET_BLOCK}（同步客户端、不触发邻居更新），回放本身也会在后续步应用
+     * 同一条完结事件（写同态＝幂等），所以不会打乱事件流。
      */
     private void settleMovingPistons(ServerLevel defaultLevel) {
+        MTRProfile profile = currentProfile;
+        if (profile == null || defaultLevel == null) return;
+
         Map<BlockPos, List<B36Record>> records = ensureB36Records();
-        if (records.isEmpty() || defaultLevel == null) return;
-
-        MinecraftServer server = defaultLevel.getServer();
+        String dim = defaultLevel.dimension().location().toString();
         int settled = 0;
-        for (Map.Entry<BlockPos, List<B36Record>> entry : records.entrySet()) {
-            List<B36Record> list = entry.getValue();
-            BlockPos pos = entry.getKey();
-            ServerLevel level = resolveDimension(server, list.getFirst().dimension(), defaultLevel);
-            if (!level.hasChunkAt(pos)) continue;
-            if (!level.getBlockState(pos).is(Blocks.MOVING_PISTON)) continue;
 
-            BlockState target = null;
-            for (B36Record r : list) {
-                if (r.actionIndex >= actionCursor && r.completion) {
-                    target = Block.stateById(r.stateId);
-                    break;
-                }
-            }
-            if (target == null) {
-                for (int i = list.size() - 1; i >= 0; i--) {
-                    B36Record r = list.get(i);
-                    if (r.actionIndex < actionCursor && !r.completion) {
-                        target = Block.stateById(r.stateId);
-                        break;
+        for (MTRProfile.Area area : profile.getAreas()) {
+            if (!MTRProfile.matchDimension(area.dimension, dim)) continue;
+            for (int x = Math.min(area.x1, area.x2); x <= Math.max(area.x1, area.x2); x++) {
+                for (int y = Math.min(area.y1, area.y2); y <= Math.max(area.y1, area.y2); y++) {
+                    for (int z = Math.min(area.z1, area.z2); z <= Math.max(area.z1, area.z2); z++) {
+                        BlockPos pos = new BlockPos(x, y, z);
+                        if (!defaultLevel.hasChunkAt(pos)) continue;
+                        if (!defaultLevel.getBlockState(pos).is(Blocks.MOVING_PISTON)) continue;
+
+                        defaultLevel.setBlock(pos, completionStateFor(pos, records),
+                                MTRBlockFlags.SILENT_SET_BLOCK, MTRBlockFlags.SILENT_UPDATE_LIMIT);
+                        // 旧版本会话/点行高亮若残留过替身展示体，别让它叠在刚落位的真方块上
+                        PistonDisplayManager.removePistonDisplays(pos, defaultLevel);
+                        settled++;
                     }
                 }
             }
-            if (target == null) continue;
-
-            level.setBlock(pos, target, MTRBlockFlags.SILENT_SET_BLOCK, MTRBlockFlags.SILENT_UPDATE_LIMIT);
-            // 旧版本会话/点行高亮若残留过替身展示体，别让它叠在刚落位的真方块上
-            PistonDisplayManager.removePistonDisplays(pos, level);
-            settled++;
         }
 
         if (settled > 0) {
             MicroTimingReplay.LOGGER.info("[mtr-piston] 步 {} | 提前落位 B36 {} 处", actionCursor, settled);
         }
+    }
+
+    /** 这个位置的 B36 应该落成什么（按精度三级取值，见 {@link #settleMovingPistons}）。 */
+    private BlockState completionStateFor(BlockPos pos, Map<BlockPos, List<B36Record>> records) {
+        List<B36Record> list = records.get(pos);
+        if (list != null) {
+            for (B36Record r : list) {
+                if (r.actionIndex >= actionCursor && r.completion) {
+                    return Block.stateById(r.stateId());
+                }
+            }
+            for (int i = list.size() - 1; i >= 0; i--) {
+                B36Record r = list.get(i);
+                if (r.actionIndex < actionCursor && !r.completion) {
+                    return Block.stateById(r.stateId());
+                }
+            }
+        }
+        return Blocks.AIR.defaultBlockState();
     }
 
     private void sweepItemEntities(ServerLevel level) {
