@@ -13,15 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.piston.PistonBaseBlock;
-import net.minecraft.world.level.block.piston.PistonHeadBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.PistonType;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 import org.joml.Vector3f;
 
 public class MovingPistonEvent extends BlockPosEvent {
@@ -96,64 +88,15 @@ public class MovingPistonEvent extends BlockPosEvent {
         return appendPosText(MTRComponent.translatable(key, fallback));
     }
 
+    @Override
     public void display(ServerLevel level, Vector3f scale) {
-        // PistonDisplayManager draws these as real block displays.
-        BlockPos pos = getPos();
+        // B36 已由 ReplaySession 每步「提前落位」成真实方块（settleMovingPistons），
+        // 不再生成替身展示体——那是 1.3.10~1.3.18 反复修不好的渲染链；这里回到通用玻璃块高亮。
         if (isDespawn()) {
-            PistonDisplayManager.removePistonDisplays(pos, level);
-        } else {
-            spawnPistonDisplays(level, pos);
+            // 兼容清理：旧版本会话若还留着替身展示体，顺手删掉，别叠在真方块上
+            PistonDisplayManager.removePistonDisplays(getPos(), level);
         }
-    }
-
-    private void spawnPistonDisplays(ServerLevel level, BlockPos pos) {
-        BlockState movedState = Block.stateById(movedBlockStateId);
-        Direction facing = getDirection();
-
-        float extProg = extending ? (0.0f - 1.0f) : (1.0f - 0.0f);
-        float xOff = facing.getStepX() * extProg;
-        float yOff = facing.getStepY() * extProg;
-        float zOff = facing.getStepZ() * extProg;
-
-        // 复用上一轮的同位置替身（避免每步都刷一批实体）——但必须是**还活着**的，
-        // 否则就变成"登记了 UUID 却什么都没画"，画面上就是一片空洞。
-        List<UUID> oldUuids = PistonDisplayManager.claimOldPistonDisplay(pos);
-        if (oldUuids != null && !oldUuids.isEmpty() && PistonDisplayManager.anyLive(level, oldUuids)) {
-            PistonDisplayManager.registerPistonDisplays(pos, oldUuids);
-            return;
-        }
-
-        List<UUID> uuids = new ArrayList<>();
-
-        if (isSourcePiston && !extending) {
-            PistonType pistonType = movedState.is(Blocks.STICKY_PISTON) ? PistonType.STICKY : PistonType.DEFAULT;
-
-            BlockState pistonHeadState = Blocks.PISTON_HEAD.defaultBlockState()
-                    .setValue(PistonHeadBlock.TYPE, pistonType)
-                    .setValue(PistonHeadBlock.FACING, facing)
-                    .setValue(PistonHeadBlock.SHORT, false);
-            UUID headUuid = PistonDisplayManager.spawnStaticBlockDisplay(level, pos, pistonHeadState, xOff, yOff, zOff);
-            uuids.add(headUuid);
-
-            BlockState baseState = movedState.hasProperty(PistonBaseBlock.EXTENDED) ?
-                    movedState.setValue(PistonBaseBlock.EXTENDED, true) :
-                    (pistonType == PistonType.STICKY ? Blocks.STICKY_PISTON : Blocks.PISTON).defaultBlockState()
-                            .setValue(PistonBaseBlock.FACING, facing)
-                            .setValue(PistonBaseBlock.EXTENDED, true);
-            UUID baseUuid = PistonDisplayManager.spawnStaticBlockDisplay(level, pos, baseState, 0, 0, 0);
-            uuids.add(baseUuid);
-
-        } else if (movedState.is(Blocks.PISTON_HEAD)) {
-            BlockState headState = movedState.setValue(PistonHeadBlock.SHORT, false);
-            UUID headUuid = PistonDisplayManager.spawnStaticBlockDisplay(level, pos, headState, xOff, yOff, zOff);
-            uuids.add(headUuid);
-
-        } else {
-            UUID uuid = PistonDisplayManager.spawnStaticBlockDisplay(level, pos, movedState, xOff, yOff, zOff);
-            uuids.add(uuid);
-        }
-
-        PistonDisplayManager.registerPistonDisplays(pos, uuids);
+        super.display(level, scale);
     }
 
     @Override

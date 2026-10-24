@@ -15,10 +15,10 @@ import ml.mypals.microtimingreplay.profile.MTRProfile;
 import ml.mypals.microtimingreplay.profile.TickFrame;
 import ml.mypals.microtimingreplay.replay.scoreboard.TimelineGenerator;
 import ml.mypals.microtimingreplay.replay.scoreboard.VirtualScoreboardManager;
+import ml.mypals.microtimingreplay.util.MTRBlockFlags;
 import ml.mypals.microtimingreplay.util.MTRComponent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.network.chat.Component;
@@ -80,17 +80,19 @@ public class ReplaySession {
 
     /** 每个 tick 帧内 event → step 的映射；首次用到时整表算一次，之后每步直接查。 */
     private Map<TickFrame, Map<MTREvent, Integer>> stepMaps;
-    /** 录制里有没有活塞事件（没有就跳过一遍全表扫描）。 */
-    private Boolean hasPistonActions;
     /**
-     * 「世界里出现 moving_piston（B36）的位置 → 该画成什么方块」的兜底表。
-     * 录音里没记到活塞事件、或替身实体中途没了的时候，靠它把 B36 补画出来（B36 自己渲染成空气）。
-     * 懒加载一次，之后每步只查表。
+     * B36（moving_piston）位置 → 按录制顺序排列的「出生 / 完结」记录，懒加载一次。
+     * 完结记录＝该位置 {@code moving_piston → 落点状态} 的 setBlock（原版由 PistonMovingBlockEntity.tick
+     * 在世界真的走刻时才执行，冻结回放等不到它）；出生记录＝MovingPistonEvent(spawn) 的 movedState。
+     * 这是世界状态数据、与显示过滤器无关，不随过滤器重建。
      */
-    private Map<BlockPos, B36Info> b36Info;
+    private Map<BlockPos, List<B36Record>> b36Records;
 
-    /** 某个 B36 位置要画出来的替身信息；{@code dirId < 0} 表示方向未知（就画在 B36 那一格）。 */
-    private record B36Info(int stateId, int dirId, boolean extending, boolean sourcePiston, String dimension) {}
+    /**
+     * @param actionIndex 这条记录在 flatActions 里的下标
+     * @param completion  true＝完结 setBlock（stateId＝落点状态）；false＝活塞出生事件（stateId＝正在移动的方块）
+     */
+    private record B36Record(int actionIndex, boolean completion, int stateId, String dimension) {}
     /** 过滤器一改，isDisplayed() 结果就变了 ⇒ 用它让行号前缀表失效重建。 */
     private int displayedRevision = 0;
 
@@ -99,7 +101,6 @@ public class ReplaySession {
         displayedRevision++;
         rowPrefix = null;
         stepMaps = null;
-        hasPistonActions = null;
     }
     private long totalTick = 0;
     private long currentVirtualTick = 0;
@@ -482,59 +483,30 @@ public class ReplaySession {
         return stepMaps.getOrDefault(frame, java.util.Map.of());
     }
 
-    private boolean hasPistonActions() {
-        if (hasPistonActions == null) {
-            boolean found = false;
-            for (ReplayAction a : flatActions) {
-                if (a.event instanceof MovingPistonEvent || a.event instanceof MovingPistonTickEvent) {
-                    found = true;
-                    break;
-                }
-            }
-            hasPistonActions = found;
-        }
-        return hasPistonActions;
-    }
-
     /**
-     * 兜底表：位置 → 「这个位置挂着 B36 时该画成什么方块」。
+     * B36 记录表：位置 → 有序的出生/完结记录。
      *
-     * <p>两个来源，后者更准、优先级更高：
-     * <ol>
-     *   <li>{@link SetBlockEvent}：B36 被换成的那个方块（活塞推完/拉完后的落点状态）。方向未知。</li>
-     *   <li>{@link MovingPistonEvent} / {@link MovingPistonTickEvent}：录制下来的"正在移动的方块"，方向/伸收都有。</li>
-     * </ol>
+     * <p>完结（{@code moving_piston → 落点状态}）与出生（MovingPistonEvent(spawn)）都取自录制本身，
+     * 与过滤器无关——它们是世界状态，不是展示。表为空说明整场录制没有活塞，每步直接跳过。
      */
-    private Map<BlockPos, B36Info> ensureB36Info() {
-        if (b36Info == null) {
-            Map<BlockPos, B36Info> m = new HashMap<>();
-
-            // ① 先靠 setBlock 兜底：B36 被换成的那个方块 = 移动结束后落在这里的方块
-            for (ReplayAction a : flatActions) {
-                if (!(a.event instanceof SetBlockEvent sbe) || !sbe.succeed) continue;
-                BlockState from = Block.stateById(sbe.getOldStateId());
-                BlockState to = Block.stateById(sbe.getNewStateId());
-                if (!from.is(Blocks.MOVING_PISTON)) continue;
-                if (to.isAir() || to.is(Blocks.MOVING_PISTON)) continue;
-                m.put(sbe.getPos(), new B36Info(sbe.getNewStateId(), -1, true, false, sbe.getDimension()));
-            }
-
-            // ② 再用录制下来的活塞事件覆盖（方向/伸收/是不是活塞本体都知道，画得更准）
-            for (ReplayAction a : flatActions) {
-                if (a.event instanceof MovingPistonEvent mpe) {
-                    if (mpe.isDespawn()) continue;
-                    m.put(mpe.getPos(), new B36Info(mpe.getMovedBlockStateId(),
-                            mpe.getDirection().get3DDataValue(), mpe.isExtending(),
-                            mpe.isSourcePiston(), mpe.getDimension()));
-                } else if (a.event instanceof MovingPistonTickEvent mpte) {
-                    m.putIfAbsent(mpte.getPos(), new B36Info(mpte.getMovedBlockStateId(),
-                            mpte.getDirection().get3DDataValue(), mpte.isExtending(),
-                            mpte.isSourcePiston(), mpte.getDimension()));
+    private Map<BlockPos, List<B36Record>> ensureB36Records() {
+        if (b36Records == null) {
+            Map<BlockPos, List<B36Record>> m = new HashMap<>();
+            for (int i = 0; i < flatActions.size(); i++) {
+                MTREvent event = flatActions.get(i).event();
+                if (event instanceof SetBlockEvent sbe && sbe.succeed) {
+                    if (!Block.stateById(sbe.getOldStateId()).is(Blocks.MOVING_PISTON)) continue;
+                    if (Block.stateById(sbe.getNewStateId()).is(Blocks.MOVING_PISTON)) continue;
+                    m.computeIfAbsent(sbe.getPos(), k -> new ArrayList<>())
+                            .add(new B36Record(i, true, sbe.getNewStateId(), sbe.getDimension()));
+                } else if (event instanceof MovingPistonEvent mpe && !mpe.isDespawn()) {
+                    m.computeIfAbsent(mpe.getPos(), k -> new ArrayList<>())
+                            .add(new B36Record(i, false, mpe.getMovedBlockStateId(), mpe.getDimension()));
                 }
             }
-            b36Info = m;
+            b36Records = m;
         }
-        return b36Info;
+        return b36Records;
     }
 
     private void updateBossBar() {
@@ -593,22 +565,11 @@ public class ReplaySession {
 
         PistonDisplayManager.beginRenderPistons();
 
+        // 冻结回放里 B36 等不到原版的完结 tick ⇒ 按录制里记下的落点状态**提前落位**，
+        // 世界里不再有渲染成空气的 moving_piston（替身展示体那套整体退役）。
+        settleMovingPistons(level);
+
         int maxLen = Math.min(actionCursor, flatActions.size());
-        if (hasPistonActions()) {
-            for (int i = 0; i < maxLen; i++) {
-                ReplayAction a = flatActions.get(i);
-                // 只要不是 EXIT：活塞事件既可能是叶子，也可能是某个作用域（方块事件/邻居更新）的子事件
-                if (a.type == ActionType.EXIT) continue;
-                if (!a.event.isDisplayed()) continue;
-                if (a.event instanceof MovingPistonEvent mpe) {
-                    mpe.display(resolveLevel(level, mpe));
-                } else if (a.event instanceof MovingPistonTickEvent mpte) {
-                    mpte.display(resolveLevel(level, mpte));
-                }
-            }
-        }
-        // 兜底：按世界的真实方块状态再补一次 B36 替身（没录到活塞事件时也得画）
-        renderB36StandIns(level);
 
         // 复用增量维护的栈（只读，别在下面改它）
         List<MTREvent> activeStack = openStackAt(maxLen);
@@ -706,56 +667,59 @@ public class ReplaySession {
     }
 
     /**
-     * B36 兜底渲染：世界里还挂着 {@code moving_piston} 的位置，必须有替身把它画出来。
+     * B36（moving_piston）提前落位：每步把世界里还挂着的 B36 直接写成录制里记下的「落点状态」。
      *
-     * <p>{@code moving_piston} 这个方块自己渲染成空气（它是靠方块实体的渲染器把"正在移动的方块"画出来的），
-     * 而回放只把方块状态写回世界、不会建那份方块实体 ⇒ 冻结状态下看过去就是一格空洞／透明。
+     * <p>为什么需要它：B36 自身渲染成空气，原版靠 {@code PistonMovingBlockEntity.tick} 在世界真的
+     * 走刻时把它替换成落点方块——而冻结回放不推进真实游戏刻（v1.3.7 起），这个 tick 永远等不到，
+     * B36 就一直以「看不见的方块」挂在世界里（活塞推/拉 ⇒ 方块变透明/空洞的根源）。
      *
-     * <p>主流程是"从 0 重放到光标"重建活塞替身；但只要那一环没走到（事件被过滤掉、替身实体中途没了、
-     * 维度没对上……），就还是空洞。这里按**世界当前的真实方块状态**再兜一次：位置现在是 B36 且没有
-     * 活着的替身 ⇒ 现场造一个。
+     * <p>落点状态两个来源（前者更准）：
+     * <ol>
+     *   <li>光标之后**最近一次**完结记录：正是当前这场「移动中」的真实结局（倒着走回窗口时也成立）。</li>
+     *   <li>光标之前**最近一次**出生记录的 movedState：录制中断在移动半路、等不到完结时的兜底。</li>
+     * </ol>
+     * 写入用 {@code SILENT_SET_BLOCK}（同步客户端、不触发邻居更新），回放本身也在下一步应用同一条
+     * 完结事件（写同态＝幂等），所以不会打乱事件流。
      */
-    private void renderB36StandIns(ServerLevel level) {
-        Map<BlockPos, B36Info> info = ensureB36Info();
-        if (info.isEmpty() || level == null) return;
+    private void settleMovingPistons(ServerLevel defaultLevel) {
+        Map<BlockPos, List<B36Record>> records = ensureB36Records();
+        if (records.isEmpty() || defaultLevel == null) return;
 
-        String dim = level.dimension().location().toString();
-        int b36 = 0;
-        int made = 0;
+        MinecraftServer server = defaultLevel.getServer();
+        int settled = 0;
+        for (Map.Entry<BlockPos, List<B36Record>> entry : records.entrySet()) {
+            List<B36Record> list = entry.getValue();
+            BlockPos pos = entry.getKey();
+            ServerLevel level = resolveDimension(server, list.getFirst().dimension(), defaultLevel);
+            if (!level.hasChunkAt(pos)) continue;
+            if (!level.getBlockState(pos).is(Blocks.MOVING_PISTON)) continue;
 
-        for (Map.Entry<BlockPos, B36Info> e : info.entrySet()) {
-            BlockPos pos = e.getKey();
-            B36Info bi = e.getValue();
-            if (bi.dimension() != null && !bi.dimension().isEmpty() && !bi.dimension().equals(dim)) continue;
-
-            BlockState cur = level.getBlockState(pos);
-            if (!cur.is(Blocks.MOVING_PISTON)) continue;
-            b36++;
-
-            List<UUID> existing = PistonDisplayManager.getPistonDisplayUUIDs(pos);
-            if (existing != null && !existing.isEmpty() && PistonDisplayManager.anyLive(level, existing)) continue;
-
-            BlockState moved = Block.stateById(bi.stateId());
-            if (moved == null || moved.isAir()) continue;
-
-            if (bi.dirId() < 0) {
-                // 只知道方块、不知道方向 ⇒ 就画在 B36 这一格
-                List<UUID> uuids = new ArrayList<>();
-                uuids.add(PistonDisplayManager.spawnStaticBlockDisplay(level, pos, moved, 0, 0, 0));
-                PistonDisplayManager.registerPistonDisplays(pos, uuids);
-            } else {
-                // 复用 MovingPistonEvent 自己的绘制分支（活塞头 / 活塞本体 / 被推的方块）
-                new MovingPistonEvent(currentVirtualTick, pos, bi.stateId(),
-                        Direction.from3DDataValue(bi.dirId()), bi.extending(), bi.sourcePiston(), false, dim)
-                        .display(level, new Vector3f(1, 1, 1));
+            BlockState target = null;
+            for (B36Record r : list) {
+                if (r.actionIndex >= actionCursor && r.completion) {
+                    target = Block.stateById(r.stateId);
+                    break;
+                }
             }
-            made++;
+            if (target == null) {
+                for (int i = list.size() - 1; i >= 0; i--) {
+                    B36Record r = list.get(i);
+                    if (r.actionIndex < actionCursor && !r.completion) {
+                        target = Block.stateById(r.stateId);
+                        break;
+                    }
+                }
+            }
+            if (target == null) continue;
+
+            level.setBlock(pos, target, MTRBlockFlags.SILENT_SET_BLOCK, MTRBlockFlags.SILENT_UPDATE_LIMIT);
+            // 旧版本会话/点行高亮若残留过替身展示体，别让它叠在刚落位的真方块上
+            PistonDisplayManager.removePistonDisplays(pos, level);
+            settled++;
         }
 
-        if (b36 > 0 || made > 0) {
-            MicroTimingReplay.LOGGER.info(
-                    "[mtr-piston] 步 {} | 世界里 B36 {} 处 | 本轮新造替身 {} 处 | 已登记 {} 处",
-                    actionCursor, b36, made, PistonDisplayManager.registeredCount());
+        if (settled > 0) {
+            MicroTimingReplay.LOGGER.info("[mtr-piston] 步 {} | 提前落位 B36 {} 处", actionCursor, settled);
         }
     }
 
@@ -893,17 +857,20 @@ public class ReplaySession {
 
     public static ServerLevel resolveLevel(ServerLevel defaultLevel, MTREvent event) {
         if (!event.hasDimension()) return defaultLevel;
-        String dim = event.getDimension();
-        if (dim == null || dim.isEmpty()) return defaultLevel;
-        MinecraftServer server = defaultLevel.getServer();
+        return resolveDimension(defaultLevel.getServer(), event.getDimension(), defaultLevel);
+    }
+
+    /** 维度字符串（{@code minecraft:the_end}）→ 对应的 ServerLevel，认不出就返回默认。 */
+    private static ServerLevel resolveDimension(MinecraftServer server, String dim, ServerLevel fallback) {
+        if (dim == null || dim.isEmpty() || server == null) return fallback;
         String[] parts = dim.split(":", 2);
-        if (parts.length != 2) return defaultLevel;
+        if (parts.length != 2) return fallback;
         ResourceKey<Level> key = ResourceKey.create(
                 Registries.DIMENSION,
                 ResourceLocation.fromNamespaceAndPath(parts[0], parts[1])
         );
         ServerLevel resolved = server.getLevel(key);
-        return resolved != null ? resolved : defaultLevel;
+        return resolved != null ? resolved : fallback;
     }
 
     public int advance(ServerLevel level, int amount, String unit, boolean forward) {

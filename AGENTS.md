@@ -43,15 +43,18 @@ env -u https_proxy -u HTTPS_PROXY -u http_proxy -u HTTP_PROXY \
 - **⚠️ 不要在 GitHub 页面点「同步分叉 / Sync fork」**：我们通常 `ahead_by>0 / behind_by=0`，
   点它等于「Discard commit」，会把我们的修复丢掉
 
-### ★ 冻结回放 + 活塞：`moving_piston`（B36）那条链（2026-10-23 定型）
+### ★ 冻结回放 + 活塞：`moving_piston`（B36）那条链（v1.3.19 定型：**提前落位**）
 
 | 环节 | 事实 |
 |---|---|
-| B36 自身 | **`moving_piston` 渲染成空气**；"正在移动的方块"原版靠 `PistonMovingBlockEntity` 的渲染器画，而回放只把方块状态写回世界、**不建那份方块实体** ⇒ 冻结回放时全靠 `PistonDisplayManager` 的 `BlockDisplay` 替身 |
-| 替身的地位 | **不是装饰，是唯一渲染来源** ⇒ ① 不受 `showBlockMarkers` 控制 ② 不受「标记：隐藏」控制（`isHideableMarker()` 而非 `isMarker()`）③ 不做"关掉所有标记"这种一刀切 |
-| 替身在服务端 | 每步重建：`renderCurrentState` 回放活塞事件（不限 `LEAF`，只排除 `EXIT`）＋ 兜底 `renderB36StandIns()`（按**世界真实方块状态** `is(Blocks.MOVING_PISTON)` 补）＋ 复用旧替身前先 `anyLive()` 查存活 |
-| 诊断 | 日志 `[mtr-piston] 步 X ｜ 世界里 B36 N 处 ｜ 本轮新造替身 M 处 ｜ 已登记 K 处` |
-| 排查"看不见" | **先看 `config/mtr/client.json` 的 `hideMarkers`**（客户端开关，v1.3.18 的真凶），别只盯服务端 |
+| 根因 | B36 自身渲染成空气；原版靠 `PistonMovingBlockEntity.tick` 在**世界真的走刻**时把它替换成落点方块（`setBlock(pos, movedState, 67)`，已反编译实锤）。v1.3.7 起回放不推进真实游戏刻 ⇒ 这个 tick 永远等不到 ⇒ B36 挂成空洞 |
+| 修复（v1.3.19） | **`ReplaySession.settleMovingPistons()`**：每步把世界里还挂着的 B36 直接写成录制里记下的落点状态（`SILENT_SET_BLOCK`：同步客户端、不触发邻居更新）。数据源＝录制本身的完结事件（`SetBlockEvent` 的 `from=moving_piston`），光标之后最近一条优先，出生事件兜底 |
+| 已退役 | **替身展示体（BlockDisplay）那套整体下线**（1.3.10~1.3.18 反复修不好的渲染链）：`MovingPistonEvent/MovingPistonTickEvent.display()` 回到通用玻璃块高亮；`PistonDisplayManager` 只留清理职责（clearAll/开机清残留/设置页一键清理） |
+| 诊断 | 日志 `[mtr-piston] 步 X | 提前落位 B36 N 处`（只在真落位时打） |
+| 已知边界 | 回放期间**不展示「移动中」的中间态**，一律显示落点结果（方块比真实时间早 1~2 刻落位）；时间轴里 `Piston Spawn/Tick/Remove` 事件照旧逐条可查 |
 
-> ⚠️ **截至 v1.3.18 仍未最终修好**（Ray 2026-10-23 21:40 回退 `v1.3.6`）。**再接手先做**：把 `hideMarkers` 设回 false 复测，并比对 `[mtr-piston]` 的 K 与画面。
-> 历史：v1.3.7 去掉 `stepGameIfPaused(2)`（回放不再推进真实游戏刻）⇒ B36 不再被真实 tick 推完 ⇒ 这个坑才暴露。
+> 历史教训（别再走回头路）：
+> ① v1.3.10 曾把「不画玻璃标记」一刀切套到活塞替身上 ⇒ 替身是渲染来源不是装饰，不能跟普通标记一起关；
+> ② v1.3.9 把 `mtr_piston_display` 算进 `isMarker()` ⇒ `hideMarkers:true` 时 `MarkerVisibilityMixin` 把替身整个藏掉——**同一个判定函数被两处用在相反目的时拆成两个谓词**；
+> ③ 排查客户端"看不见"先看 `config/mtr/client.json`（如 `hideMarkers`），别只盯服务端；
+> ④ 替身系统的死穴＝它永远在和世界真实状态对账（过期替身叠在真方块上、替身死了占位不画图）——**与其造渲染替身，不如让世界本身没有不可渲染的方块**。

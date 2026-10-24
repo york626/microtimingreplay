@@ -3,8 +3,6 @@ package ml.mypals.microtimingreplay.event;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 
-import com.mojang.math.Transformation;
-import ml.mypals.microtimingreplay.marker.PistonDisplayManager;
 import ml.mypals.microtimingreplay.util.MTRComponent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -13,19 +11,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Display;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.piston.PistonBaseBlock;
-import net.minecraft.world.level.block.piston.PistonHeadBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.PistonType;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
-
-import java.util.List;
-import java.util.UUID;
 
 public class MovingPistonTickEvent extends BlockPosEvent {
 
@@ -95,10 +83,6 @@ public class MovingPistonTickEvent extends BlockPosEvent {
     }
 
 
-    private float getExtendedProgress(float p) {
-        return extending ? (p - 1.0f) : (1.0f - p);
-    }
-
     @Override
     public ChatFormatting getColor() {
         return ChatFormatting.LIGHT_PURPLE;
@@ -111,64 +95,11 @@ public class MovingPistonTickEvent extends BlockPosEvent {
         );
     }
 
+    @Override
     public void display(ServerLevel level, Vector3f scale) {
-        // PistonDisplayManager draws these as real block displays.
-        BlockPos pos = getPos();
-        List<UUID> uuids = PistonDisplayManager.getPistonDisplayUUIDs(pos);
-        if (uuids == null || uuids.isEmpty())
-            return;
-
-        Direction facing = getDirection();
-        float extProg = getExtendedProgress(progress);
-
-        float xOff = facing.getStepX() * extProg;
-        float yOff = facing.getStepY() * extProg;
-        float zOff = facing.getStepZ() * extProg;
-
-        BlockState movedState = Block.stateById(movedBlockStateId);
-
-        float clampedProgress = Mth.clamp(progress, 0.0f, 1.0f);
-
-        if (isSourcePiston && !extending) {
-            // [0]=head at renderPos, [1]=base at basePos
-            if (!uuids.isEmpty()) {
-                boolean shortHead = clampedProgress >= 0.5f;
-                var headEntity = level.getEntity(uuids.getFirst());
-                if (headEntity instanceof Display.BlockDisplay bd) {
-                    PistonType ptype = movedState.is(Blocks.STICKY_PISTON) ? PistonType.STICKY : PistonType.DEFAULT;
-                    BlockState headState = Blocks.PISTON_HEAD.defaultBlockState()
-                            .setValue(PistonHeadBlock.TYPE, ptype)
-                            .setValue(PistonHeadBlock.FACING, facing)
-                            .setValue(PistonHeadBlock.SHORT, shortHead);
-                    bd.setBlockState(headState);
-                    PistonDisplayManager.applyOffset(bd, xOff, yOff, zOff);
-                }
-            }
-            if (uuids.size() >= 2) {
-                var baseEntity = level.getEntity(uuids.get(1));
-                if (baseEntity instanceof Display.BlockDisplay bd) {
-                    PistonDisplayManager.applyOffset(bd, 0, 0, 0);
-                }
-            }
-
-        } else if (movedState.is(Blocks.PISTON_HEAD)) {
-            if (!uuids.isEmpty()) {
-                var entity = level.getEntity(uuids.getFirst());
-                if (entity instanceof Display.BlockDisplay bd) {
-                    boolean shortHead = clampedProgress <= 0.5f;
-                    BlockState headState = movedState.setValue(PistonHeadBlock.SHORT, shortHead);
-                    bd.setBlockState(headState);
-                    PistonDisplayManager.applyOffset(bd, xOff, yOff, zOff);
-                }
-            }
-        } else {
-            if (!uuids.isEmpty()) {
-                var entity = level.getEntity(uuids.getFirst());
-                if (entity instanceof Display.BlockDisplay bd) {
-                    PistonDisplayManager.applyOffset(bd, xOff, yOff, zOff);
-                }
-            }
-        }
+        // B36 已由 ReplaySession 每步「提前落位」成真实方块，替身动画（按进度挪展示体）不再需要；
+        // 这里回到通用玻璃块高亮，点时间轴行时和其它事件一致。
+        super.display(level, scale);
     }
 
     @Override
