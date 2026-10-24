@@ -68,6 +68,12 @@ public class SetBlockEvent extends BlockPosEvent {
         BlockState state = Block.stateById(stateId);
         BlockPos pos = new BlockPos(getX(), getY(), getZ());
         level.setBlock(pos, state, MTRBlockFlags.SILENT_SET_BLOCK, MTRBlockFlags.SILENT_UPDATE_LIMIT);
+        // setBlock 会给 moving_piston 自动创建一个空的 PistonMovingBlockEntity；
+        // 世界未冻结时它会自行 tick 完结（更新邻居、走 destroyBlock 掉落物品，和回放打架）。
+        // 回放只写方块状态、不养活方块实体——B36 的画面由 settle 负责落位。
+        if (state.is(Blocks.MOVING_PISTON)) {
+            level.removeBlockEntity(pos);
+        }
     }
 
     @Override

@@ -17,7 +17,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.piston.PistonMovingBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.io.File;
@@ -65,18 +67,34 @@ public class WorldBackupManager {
                     for (int z = minZ; z <= maxZ; z++) {
                         BlockPos pos = new BlockPos(x, y, z);
                         BlockState state = level.getBlockState(pos);
-                        
+                        BlockEntity be = level.getBlockEntity(pos);
+
                         CompoundTag blockTag = new CompoundTag();
                         blockTag.putInt("x", x);
                         blockTag.putInt("y", y);
                         blockTag.putInt("z", z);
-                        blockTag.putInt("stateId", Block.getId(state));
-                        
-                        BlockEntity be = level.getBlockEntity(pos);
-                        if (be != null) {
-                            blockTag.put("nbt", be.saveWithFullMetadata(level.registryAccess()));
+
+                        // moving_piston（B36）不能带着方块实体进快照：回放若还原出一个活的
+                        // PistonMovingBlockEntity，世界一旦在走刻（未冻结）它会自己 tick 完结——
+                        // 更新邻居、和回放写入打架，甚至走 updateOrDestroy → destroyBlock(掉落)
+                        // 平白掉出活塞物品。按原版完结语义落位成它正在搬运的方块（同一格）。
+                        BlockState savedState = state;
+                        CompoundTag savedNbt = null;
+                        if (state.is(Blocks.MOVING_PISTON)) {
+                            if (be instanceof PistonMovingBlockEntity piston
+                                    && piston.getMovedState() != null
+                                    && !piston.getMovedState().isAir()) {
+                                savedState = piston.getMovedState();
+                            }
+                            // 无论换不换状态，都不保存这份方块实体
+                        } else if (be != null) {
+                            savedNbt = be.saveWithFullMetadata(level.registryAccess());
                         }
-                        
+                        blockTag.putInt("stateId", Block.getId(savedState));
+                        if (savedNbt != null) {
+                            blockTag.put("nbt", savedNbt);
+                        }
+
                         blocksTag.add(blockTag);
                     }
                 }
@@ -183,19 +201,38 @@ public class WorldBackupManager {
                     int y = blockTag.getInt("y");
                     int z = blockTag.getInt("z");
                     int stateId = blockTag.getInt("stateId");
-                    
+
                     BlockPos pos = new BlockPos(x, y, z);
                     BlockState state = Block.stateById(stateId);
+                    CompoundTag nbt = blockTag.contains("nbt") ? blockTag.getCompound("nbt") : null;
+
+                    // 旧快照防御：moving_piston 不带方块实体还原（活实体会自己 tick 完结、
+                    // 掉落活塞物品）；能解读出「正在搬运的方块」就落位成它。
+                    if (state.is(Blocks.MOVING_PISTON)) {
+                        if (nbt != null && nbt.contains("blockState")) {
+                            BlockState moved = net.minecraft.nbt.NbtUtils.readBlockState(
+                                    level.registryAccess().lookupOrThrow(
+                                            net.minecraft.core.registries.Registries.BLOCK),
+                                    nbt.getCompound("blockState"));
+                            if (!moved.isAir()) {
+                                state = moved;
+                            }
+                        }
+                        nbt = null;
+                    }
 
                     level.setBlock(pos, state, MTRBlockFlags.SILENT_SET_BLOCK, MTRBlockFlags.SILENT_UPDATE_LIMIT);
 
-                    if (blockTag.contains("nbt")) {
-                        CompoundTag nbt = blockTag.getCompound("nbt");
-                        if (nbt != null) {
-                            BlockEntity be = BlockEntity.loadStatic(pos, state, nbt, level.registryAccess());
-                            if (be != null) {
-                                level.setBlockEntity(be);
-                            }
+                    // setBlock 会给 moving_piston 自动创建一个空的方块实体；
+                    // 世界未冻结时它会自行 tick（更新邻居/掉物品）——杀掉。
+                    if (state.is(Blocks.MOVING_PISTON)) {
+                        level.removeBlockEntity(pos);
+                    }
+
+                    if (nbt != null) {
+                        BlockEntity be = BlockEntity.loadStatic(pos, state, nbt, level.registryAccess());
+                        if (be != null) {
+                            level.setBlockEntity(be);
                         }
                     }
                 }
