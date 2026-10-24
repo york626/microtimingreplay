@@ -674,10 +674,9 @@ public class ReplaySession {
      * B36 就一直以「看不见的方块」挂在世界里（活塞推/拉 ⇒ 方块变透明/空洞的根源）。
      *
      * <p>扫描范围＝**整个回放区域**（不信任任何索引/事件来源）：不管这个 B36 是回放事件写进去的、
-     * 录制起点快照里带的、还是区域边界漏录造成的，统统在每一步被落位。落点状态按精度取：
+     * 录制起点快照里带的、还是区域边界漏录造成的，统统在每一步被落位。画成什么按精度取：
      * <ol>
-     *   <li>光标之后**最近一次**完结记录（正是当前这场「移动中」的真实结局，倒着走回窗口时也成立）；</li>
-     *   <li>光标之前**最近一次**出生记录的 movedState（录制中断在移动半路时的兜底）；</li>
+     *   <li>光标之前**最近一次**出生记录的 movedState（正在到达的方块——链条每格都有东西，没有洞）；</li>
      *   <li>都没有 ⇒ 空气（没有可靠数据时不猜测方块）。</li>
      * </ol>
      * 写入用 {@code SILENT_SET_BLOCK}（同步客户端、不触发邻居更新），回放本身也会在后续步应用
@@ -715,18 +714,24 @@ public class ReplaySession {
         }
     }
 
-    /** 这个位置的 B36 应该落成什么（按精度三级取值，见 {@link #settleMovingPistons}）。 */
+    /** 这个位置的 B36 应该画成什么（按精度取值，见 {@link #settleMovingPistons}）。 */
     private BlockState completionStateFor(BlockPos pos, Map<BlockPos, List<B36Record>> records) {
         List<B36Record> list = records.get(pos);
         if (list != null) {
-            for (B36Record r : list) {
-                if (r.actionIndex >= actionCursor && r.completion) {
+            // ① 移动中优先画「正在到达的方块」＝光标前最近一次出生事件的 movedState。
+            //    B36 的位置就是落点，画 movedState＝"移动刚完成"的样子；推拉链条上每一格
+            //    都有自己的 B36/落位方块 ⇒ 没有任何洞。
+            //    ⚠ 不能画完结事件的目标态：同一位置接连推/拉时（如活塞 t36 伸出、t38 立刻收回），
+            //    完结态属于后一阶段的机器形态（"头已缩回"的空气）——提前画就是"基座伸着、头没了"。
+            for (int i = list.size() - 1; i >= 0; i--) {
+                B36Record r = list.get(i);
+                if (r.actionIndex <= actionCursor && !r.completion) {
                     return Block.stateById(r.stateId());
                 }
             }
-            for (int i = list.size() - 1; i >= 0; i--) {
-                B36Record r = list.get(i);
-                if (r.actionIndex < actionCursor && !r.completion) {
+            // ② 没有出生记录（旧档/活塞出生事件被过滤掉）：退回光标后最近一次完结事件的目标态
+            for (B36Record r : list) {
+                if (r.actionIndex >= actionCursor && r.completion) {
                     return Block.stateById(r.stateId());
                 }
             }
