@@ -78,9 +78,11 @@ public final class QuickRecordService {
                 return State.idle("覆盖旧配置档失败：" + name);
             }
         }
-        // 录制前把噪音事件关掉（可在设置里关掉这个行为，或事后在「过滤器」里改回来）
+        // 录制前只关真正无意义的网络包噪音（可在设置里关掉这个行为，或事后在「过滤器」里改回来）。
+        // 实体移动/tick 不再自动关：漏斗矿车等实体的运动是「机器运转感」的一半（Ray 2026-10-24 要求），
+        // 回放引擎本来就支持按事件前后移动实体。
         if (ml.mypals.microtimingreplay.replay.ReplayPrefs.cleanRecording()) {
-            for (String noisy : new String[]{"network_packet", "entity_tick", "entity_move"}) {
+            for (String noisy : new String[]{"network_packet"}) {
                 ml.mypals.microtimingreplay.config.RecordingFilterConfig.setMode(
                         noisy, ml.mypals.microtimingreplay.config.RecordMode.OFF);
             }
