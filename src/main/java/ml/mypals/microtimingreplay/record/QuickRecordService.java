@@ -103,8 +103,16 @@ public final class QuickRecordService {
         lastBroadcastTick = -1;
         MicroTimingReplay.LOGGER.info("[mtr] 动态记录开始：profile={} dim={} min={} max={} volume={}",
                 name, dimension, a, b, volume);
-        return new State(true, name, 0, 0, MAX_TICKS,
-                "开始录制：" + name + "（上限 " + MAX_TICKS + " 刻；建议先 /tick freeze）");
+        // 范围要说给人看，不能只进日志：回放只还原选区内的变化，选区没罩住推动落点
+        // 就会出现"回放时那一块不动/缺块、退出回放又正常"（2026-10-24 实际踩过）。
+        String range = "x" + Math.min(a.getX(), b.getX()) + "~" + Math.max(a.getX(), b.getX())
+                + " y" + Math.min(a.getY(), b.getY()) + "~" + Math.max(a.getY(), b.getY())
+                + " z" + Math.min(a.getZ(), b.getZ()) + "~" + Math.max(a.getZ(), b.getZ());
+        String hint = "开始录制：" + name + "（" + volume + " 格，" + range + "；上限 " + MAX_TICKS + " 刻）";
+        if (volume < 2000) {
+            hint += " ⚠ 选区偏小：请确认罩住整台机器，活塞推出选区的方块不会被录制";
+        }
+        return new State(true, name, 0, 0, MAX_TICKS, hint);
     }
 
     public static State stop(ServerPlayer player) {
