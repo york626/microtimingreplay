@@ -19,7 +19,8 @@
     "ServerPhasesMixin",
     "ServerNetworkPacketMixin",
     "VibrationSystemTickerMixin",
-    "client.DisplayMixin"
+    "client.DisplayMixin",
+    "ItemSpawnDiagnosticMixin"
   ],
   "injectors": {
     "defaultRequire": 1
